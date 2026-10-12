@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT  (Copyright (c) 2026 Ariel Juszczyk, see LICENSE)
 # Emulates GETLINE.COM (unicorn CPU emulator, fake BIOS/DOS calls) with typed keys.
 # Usage: python test_getline.py GETLINE.COM   (pip install unicorn)
 import sys

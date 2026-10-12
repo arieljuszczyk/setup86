@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT  (Copyright (c) 2026 Ariel Juszczyk, see LICENSE)
 r"""Copy the DOS files of eXoDOS-installed games into folders for burning to CD.
 
 For each game, keeps only what a real DOS PC needs: the files DOSBox mounted

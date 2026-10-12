@@ -86,3 +86,9 @@ Output (`~/eXoDOS/DOS-CD`, rebuilt each run; folders are hardlinks, so only ISOs
   PC, and add a `G` entry if one needs fixing.
 - **Sound**: each game keeps the config eXo last used (often Sound Blaster at DOSBox's
   `A220 I7 D1 H5`). For your real card, run the game's own SETUP/INSTALL program.
+
+## License
+
+MIT, see [LICENSE](LICENSE). `MENU.EXE` shows the license notice when you quit it.
+
+exo486 contains no eXoDOS games or files. It works on your own eXoDOS / Exodium install.

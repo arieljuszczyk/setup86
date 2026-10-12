@@ -1,4 +1,5 @@
 /* MENU.EXE - graphical game installer for the exo486 discs.
+ * Copyright (c) 2026 Ariel Juszczyk. MIT License, see LICENSE.
  *
  * VGA 320x200 (mode 13h), runs on any PC with VGA (8086 code, DOS 3.3+).
  * Reads _MENU\MENU.DAT next to the program, shows the game list with a
@@ -53,10 +54,9 @@ typedef struct {
 } Game;
 
 /* ---------- screen texts: English / Spanish (CP437, the VGA font's own accents) ---------- */
-enum { S_CREDIT, S_HEADER, S_FOOTER, S_NOPIC, S_SPANISH, S_ENGLISH, S_PRESS, S_WHERE, S_OKCANCEL, S_BADPATH, S_NODRIVE, S_NEEDS, S_NOSPACE, S_NOMKDIR, S_HASFILES, S_OVERWRITE, S_NOMEM, S_COPYING, S_BUFFER, S_FILES, S_ERRREAD, S_ERRCREATE, S_ERRWRITE, S_STOPPED, S_INCOMPLETE, S_INSTALLED, S_INFILES, S_TOPLAY, S_BYE, S_HELP, S_H_MOVE, S_H_PAGE, S_H_ENDS, S_H_JUMP, S_H_INST, S_H_HELP, S_H_LANG, S_H_QUIT, S_H_NOTE, S_COUNT };
+enum { S_HEADER, S_FOOTER, S_NOPIC, S_SPANISH, S_ENGLISH, S_PRESS, S_WHERE, S_OKCANCEL, S_BADPATH, S_NODRIVE, S_NEEDS, S_NOSPACE, S_NOMKDIR, S_HASFILES, S_OVERWRITE, S_NOMEM, S_COPYING, S_BUFFER, S_FILES, S_ERRREAD, S_ERRCREATE, S_ERRWRITE, S_STOPPED, S_INCOMPLETE, S_INSTALLED, S_INFILES, S_TOPLAY, S_BYE, S_HELP, S_H_MOVE, S_H_PAGE, S_H_ENDS, S_H_JUMP, S_H_INST, S_H_HELP, S_H_LANG, S_H_QUIT, S_H_NOTE, S_COUNT };
 static const char *msgs[2][S_COUNT] = {
-    { "Created by Ariel Juszczyk (ariel.juszczyk@gmail.com) - 2026\n",
-      "DOS GAMES",
+    { "DOS GAMES",
       "ENTER Install  F1 Help  ESC Quit",
       "(no picture)",
       "Spanish",
@@ -94,8 +94,7 @@ static const char *msgs[2][S_COUNT] = {
       "Espa\244ol",
       "Quit",
       "The game is copied to the folder you choose (C:\\JUEGOS\\<GAME> if you just press ENTER). The last screen shows how to start it." },
-    { "Creado por Ariel Juszczyk (ariel.juszczyk@gmail.com) - 2026\n",
-      "DOS GAMES",
+    { "DOS GAMES",
       "ENTER Instalar  F1 Ayuda  ESC Salir",
       "(sin imagen)",
       "Espa\244ol",
@@ -135,6 +134,29 @@ static const char *msgs[2][S_COUNT] = {
       "El juego se copia a la carpeta que elija (C:\\JUEGOS\\<JUEGO> si s\242lo pulsa ENTER). La \243ltima pantalla muestra c\242mo iniciarlo." } };
 static int lang;                      /* 0 English, 1 Spanish (F10) */
 #define L(id) msgs[lang][id]
+
+/* shown when leaving the program; the license text stays in English (see LICENSE) */
+static const char license_notice[] =
+    "exo486 - https://github.com/arieljuszczyk/exo486\n"
+    "Copyright (c) 2026 Ariel Juszczyk (ariel.juszczyk@gmail.com) - MIT License\n"
+    "\n"
+    "Permission is hereby granted, free of charge, to any person obtaining a copy\n"
+    "of this software and associated documentation files (the \"Software\"), to deal\n"
+    "in the Software without restriction, including without limitation the rights\n"
+    "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n"
+    "copies of the Software, and to permit persons to whom the Software is\n"
+    "furnished to do so, subject to the following conditions:\n"
+    "\n"
+    "The above copyright notice and this permission notice shall be included in all\n"
+    "copies or substantial portions of the Software.\n"
+    "\n"
+    "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
+    "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
+    "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
+    "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
+    "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n"
+    "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
+    "SOFTWARE.\n";
 
 static Game far *games;
 static int ngames;
@@ -759,6 +781,6 @@ int main(int argc, char **argv)
         }
     }
     set_mode(0x03);
-    printf("%s\n%s", L(S_BYE), L(S_CREDIT));
+    printf("%s\n%s", L(S_BYE), license_notice);
     return 0;
 }

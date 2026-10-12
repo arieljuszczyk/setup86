@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT  (Copyright (c) 2026 Ariel Juszczyk, see LICENSE)
 # GETLINE.COM - read a line from the keyboard into a batch variable (MS-DOS 6.x
 # batch files have no SET /P).
 #   GETLINE <file> <VAR>   writes "SET <VAR>=<typed text>" to <file>; then CALL <file>
