@@ -11,8 +11,8 @@ Duke3D's guide demos). **No launchers
 or installers are added.**
 
 ```sh
-python3 -m venv ~/.venvs/exo2cd && ~/.venvs/exo2cd/bin/pip install pycdlib pillow   # once (+ ffmpeg)
-~/.venvs/exo2cd/bin/python exo2cd.py ~/eXoDOS/eXo/eXoDOS ~/eXoDOS/DOS-CD
+python3 -m venv ~/.venvs/exo486 && ~/.venvs/exo486/bin/pip install pycdlib pillow   # once (+ ffmpeg)
+~/.venvs/exo486/bin/python exo486.py ~/eXoDOS/eXo/eXoDOS ~/eXoDOS/DOS-CD
 ```
 
 Output (`~/eXoDOS/DOS-CD`, rebuilt each run; folders are hardlinks, so only ISOs use space):
@@ -36,7 +36,7 @@ Output (`~/eXoDOS/DOS-CD`, rebuilt each run; folders are hardlinks, so only ISOs
 - **Screenshots**: a frame from eXo's gameplay video in `~/eXoDOS/Content/GameData/eXoDOS/<game>.zip`. Exodium downloads it with the game.
   - **Frame choice**: the most detailed of 7 frames (20-80% into the video). eXo's logo is painted out (ffmpeg `delogo`), then the frame is scaled to 192x120 and reduced to 240 colours.
   - **Fallback**: no video means the box art from Exodium's posters pack (`~/content/posters/eXoDOS/`).
-  - **Cache**: `~/eXoDOS/.exo2cd-cache/shots/<game>.png`. Delete a file there to pick a new frame, or drop your own 192x120 PNG in its place.
+  - **Cache**: `~/eXoDOS/.exo486-cache/shots/<game>.png`. Delete a file there to pick a new frame, or drop your own 192x120 PNG in its place.
 - **Text menu** (`TXTMENU`, fallback without VGA): it lists the games (2 columns,
   `N`/`P` to page), you type the game number, then the destination (Enter =
   `C:\JUEGOS\<GAME>`), confirm `Y`, and it runs `XCOPY /S /E` + `ATTRIB -R /S` and shows

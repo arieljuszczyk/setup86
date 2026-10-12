@@ -757,7 +757,7 @@ def exodium_genres():
 # with eXo's logo painted out; else the box art from Exodium's posters pack.
 
 SHOT_W, SHOT_H = 192, 120
-CACHE = os.path.expanduser('~/eXoDOS/.exo2cd-cache/shots')
+CACHE = os.path.expanduser('~/eXoDOS/.exo486-cache/shots')
 POSTERS = os.path.expanduser('~/content/posters/eXoDOS')
 MENU_EXE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dosmenu', 'MENU.EXE')
 
@@ -944,11 +944,11 @@ def main():
             if l.strip() and not l.startswith(('#', ' ', '\t')):
                 skip.add(l.split()[0].lower())
     if os.path.exists(OUT):
-        if not os.path.exists(os.path.join(OUT, '.exo2cd')):
+        if not os.path.exists(os.path.join(OUT, '.exo486')):
             sys.exit('refusing: %s exists but was not made by this script' % OUT)
         shutil.rmtree(OUT)
     os.makedirs(OUT)
-    open(os.path.join(OUT, '.exo2cd'), 'w').close()
+    open(os.path.join(OUT, '.exo486'), 'w').close()
     stage = os.path.join(OUT, '_stage')
     warn, games, cdgames = [], [], []
     # Spanish first: a game whose Spanish version is downloaded (!spanish/<game> +

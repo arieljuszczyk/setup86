@@ -1,4 +1,4 @@
-/* MENU.EXE - graphical game installer for the exo2cd discs.
+/* MENU.EXE - graphical game installer for the exo486 discs.
  *
  * VGA 320x200 (mode 13h), runs on any PC with VGA (8086 code, DOS 3.3+).
  * Reads _MENU\MENU.DAT next to the program, shows the game list with a
