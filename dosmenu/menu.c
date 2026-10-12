@@ -56,7 +56,7 @@ typedef struct {
 /* ---------- screen texts: English / Spanish (CP437, the VGA font's own accents) ---------- */
 enum { S_HEADER, S_FOOTER, S_NOPIC, S_SPANISH, S_ENGLISH, S_PRESS, S_WHERE, S_OKCANCEL, S_BADPATH, S_NODRIVE, S_NEEDS, S_NOSPACE, S_NOMKDIR, S_HASFILES, S_OVERWRITE, S_NOMEM, S_COPYING, S_BUFFER, S_FILES, S_ERRREAD, S_ERRCREATE, S_ERRWRITE, S_STOPPED, S_INCOMPLETE, S_INSTALLED, S_INFILES, S_TOPLAY, S_BYE, S_HELP, S_H_MOVE, S_H_PAGE, S_H_ENDS, S_H_JUMP, S_H_INST, S_H_HELP, S_H_LANG, S_H_QUIT, S_H_NOTE, S_COUNT };
 static const char *msgs[2][S_COUNT] = {
-    { "DOS GAMES",
+    { "DOS GAMES COLLECTION",
       "ENTER Install  F1 Help  ESC Quit",
       "(no picture)",
       "Spanish",
@@ -94,7 +94,7 @@ static const char *msgs[2][S_COUNT] = {
       "Espa\244ol",
       "Quit",
       "The game is copied to the folder you choose (C:\\GAMES\\<GAME> if you just press ENTER). The last screen shows how to start it." },
-    { "DOS GAMES",
+    { "DOS GAMES COLLECTION",
       "ENTER Instalar  F1 Ayuda  ESC Salir",
       "(sin imagen)",
       "Espa\244ol",
