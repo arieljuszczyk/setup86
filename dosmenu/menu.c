@@ -135,28 +135,31 @@ static const char *msgs[2][S_COUNT] = {
 static int lang;                      /* 0 English, 1 Spanish (F10) */
 #define L(id) msgs[lang][id]
 
-/* shown when leaving the program; the license text stays in English (see LICENSE) */
-static const char license_notice[] =
-    "exo486 - https://github.com/arieljuszczyk/exo486\n"
-    "Copyright (c) 2026 Ariel Juszczyk (ariel.juszczyk@gmail.com) - MIT License\n"
-    "\n"
-    "Permission is hereby granted, free of charge, to any person obtaining a copy\n"
-    "of this software and associated documentation files (the \"Software\"), to deal\n"
-    "in the Software without restriction, including without limitation the rights\n"
-    "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n"
-    "copies of the Software, and to permit persons to whom the Software is\n"
-    "furnished to do so, subject to the following conditions:\n"
-    "\n"
-    "The above copyright notice and this permission notice shall be included in all\n"
-    "copies or substantial portions of the Software.\n"
-    "\n"
-    "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
-    "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
-    "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
-    "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
-    "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n"
-    "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
-    "SOFTWARE.\n";
+/* exit screen, DOOM "ENDOOM" style: a red band with centred yellow text, then the
+ * MIT notice (kept in English, see LICENSE). Written straight to text-mode memory. */
+static const char *exit_band[] = {
+    0,                                    /* the goodbye line, in the screen language */
+    "Copyright (c) 2026 Ariel Juszczyk (ariel.juszczyk@gmail.com) - MIT License",
+    "exo486 - https://github.com/arieljuszczyk/exo486" };
+static const char *license_body[] = {
+    "Permission is hereby granted, free of charge, to any person obtaining a copy",
+    "of this software and associated documentation files (the \"Software\"), to deal",
+    "in the Software without restriction, including without limitation the rights",
+    "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell",
+    "copies of the Software, and to permit persons to whom the Software is",
+    "furnished to do so, subject to the following conditions:",
+    "",
+    "The above copyright notice and this permission notice shall be included in all",
+    "copies or substantial portions of the Software.",
+    "",
+    "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR",
+    "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,",
+    "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE",
+    "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER",
+    "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,",
+    "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE",
+    "SOFTWARE.",
+};
 
 static Game far *games;
 static int ngames;
@@ -170,6 +173,28 @@ static int shotno;
 /* ---------- low level graphics ---------- */
 
 static void set_mode(int m) { union REGS r; r.x.ax = m; int86(0x10, &r, &r); }
+
+static void exit_screen(void)
+{
+    unsigned short far *t = MK_FP(0xB800, 0);
+    union REGS r;
+    int i, row;
+    for (i = 0; i < 80 * 25; i++) t[i] = 0x0720;              /* grey on black, blank */
+    for (i = 0; i < 80 * 5; i++) t[i] = 0x4E20;               /* rows 0-4: yellow on red */
+    for (row = 0; row < 3; row++) {
+        const char *sp = row ? exit_band[row] : L(S_BYE);
+        int n = strcspn(sp, "\n"), x = (80 - n) / 2;
+        for (i = 0; i < n; i++) t[(row + 1) * 80 + x + i] = 0x4E00 | (unsigned char)sp[i];
+    }
+    for (row = 0; row < 17; row++)                            /* rows 6-22 */
+        for (i = 0; license_body[row][i]; i++) t[(row + 6) * 80 + i] = 0x0700 | (unsigned char)license_body[row][i];
+    r.h.ah = 2; r.h.bh = 0; r.h.dh = 23; r.h.dl = 0;          /* DOS prompt goes below */
+    int86(0x10, &r, &r);
+    if (keyfile) {                                            /* test hook: dump the text screen */
+        FILE *f = fopen("ENDSCR.BIN", "wb");
+        if (f) { fwrite(t, 2, 80 * 25, f); fclose(f); }
+    }
+}
 
 static void vsync(void) { while (inp(0x3DA) & 8); while (!(inp(0x3DA) & 8)); }
 
@@ -781,6 +806,6 @@ int main(int argc, char **argv)
         }
     }
     set_mode(0x03);
-    printf("%s\n%s", L(S_BYE), license_notice);
+    exit_screen();
     return 0;
 }
