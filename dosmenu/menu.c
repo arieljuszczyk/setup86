@@ -54,7 +54,7 @@ typedef struct {
 } Game;
 
 /* ---------- screen texts: English / Spanish (CP437, the VGA font's own accents) ---------- */
-enum { S_HEADER, S_FOOTER, S_NOPIC, S_SPANISH, S_ENGLISH, S_PRESS, S_WHERE, S_OKCANCEL, S_BADPATH, S_NODRIVE, S_NEEDS, S_NOSPACE, S_NOMKDIR, S_HASFILES, S_OVERWRITE, S_NOMEM, S_COPYING, S_BUFFER, S_FILES, S_ERRREAD, S_ERRCREATE, S_ERRWRITE, S_STOPPED, S_INCOMPLETE, S_INSTALLED, S_INFILES, S_TOPLAY, S_BYE, S_HELP, S_H_MOVE, S_H_PAGE, S_H_ENDS, S_H_JUMP, S_H_INST, S_H_HELP, S_H_LANG, S_H_QUIT, S_H_NOTE, S_COUNT };
+enum { S_HEADER, S_FOOTER, S_NOPIC, S_SPANISH, S_ENGLISH, S_PRESS, S_WHERE, S_OKCANCEL, S_BADPATH, S_NODRIVE, S_NEEDS, S_NOSPACE, S_NOMKDIR, S_HASFILES, S_OVERWRITE, S_NOMEM, S_COPYING, S_BUFFER, S_FILES, S_ERRREAD, S_ERRCREATE, S_ERRWRITE, S_STOPPED, S_INCOMPLETE, S_INSTALLED, S_INFILES, S_TOPLAY, S_HELP, S_H_MOVE, S_H_PAGE, S_H_ENDS, S_H_JUMP, S_H_INST, S_H_HELP, S_H_LANG, S_H_QUIT, S_H_NOTE, S_COUNT };
 static const char *msgs[2][S_COUNT] = {
     { "DOS GAMES COLLECTION",
       "ENTER Install  F1 Help  ESC Quit",
@@ -83,7 +83,6 @@ static const char *msgs[2][S_COUNT] = {
       "Installed!",
       "%u files in %s",
       "To play it:",
-      "Bye!  Run MENU again from the CD to install another game.\n",
       "Help",
       "Move through the list",
       "Page up / down",
@@ -121,7 +120,6 @@ static const char *msgs[2][S_COUNT] = {
       "\255Instalado!",
       "%u archivos en %s",
       "Para jugar:",
-      "\255Chau! Ejecute MENU desde el CD para instalar otro juego.\n",
       "Ayuda",
       "Moverse por la lista",
       "P\240gina arriba / abajo",
@@ -137,29 +135,29 @@ static int lang;                      /* 0 English, 1 Spanish (F10) */
 
 /* exit screen, DOOM "ENDOOM" style: a red band with centred yellow text, then the
  * MIT notice (kept in English, see LICENSE). Written straight to text-mode memory. */
-static const char *exit_band[] = {
-    0,                                    /* the goodbye line, in the screen language */
-    "Copyright (c) 2026 Ariel Juszczyk (ariel.juszczyk@gmail.com) - MIT License",
-    "exo486 - https://github.com/arieljuszczyk/exo486" };
-static const char *license_body[] = {
+static const char *exit_band[] = {           /* centred, yellow on red */
+    "exo486",
+    "Created by Ariel Juszczyk",
+    "Copyright (c) 2026 - ariel.juszczyk@gmail.com",
+    "",
+    "https://github.com/arieljuszczyk/exo486",
+    "MIT - License" };
+static const char *license_body[] = {         /* LICENSE without its blank lines, to fit */
     "Permission is hereby granted, free of charge, to any person obtaining a copy",
     "of this software and associated documentation files (the \"Software\"), to deal",
     "in the Software without restriction, including without limitation the rights",
     "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell",
     "copies of the Software, and to permit persons to whom the Software is",
     "furnished to do so, subject to the following conditions:",
-    "",
     "The above copyright notice and this permission notice shall be included in all",
     "copies or substantial portions of the Software.",
-    "",
     "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR",
     "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,",
     "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE",
     "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER",
     "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,",
     "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE",
-    "SOFTWARE.",
-};
+    "SOFTWARE." };
 
 static Game far *games;
 static int ngames;
@@ -180,14 +178,13 @@ static void exit_screen(void)
     union REGS r;
     int i, row;
     for (i = 0; i < 80 * 25; i++) t[i] = 0x0720;              /* grey on black, blank */
-    for (i = 0; i < 80 * 5; i++) t[i] = 0x4E20;               /* rows 0-4: yellow on red */
-    for (row = 0; row < 3; row++) {
-        const char *sp = row ? exit_band[row] : L(S_BYE);
-        int n = strcspn(sp, "\n"), x = (80 - n) / 2;
-        for (i = 0; i < n; i++) t[(row + 1) * 80 + x + i] = 0x4E00 | (unsigned char)sp[i];
+    for (i = 0; i < 80 * 8; i++) t[i] = 0x4E20;               /* rows 0-7: yellow on red */
+    for (row = 0; row < 6; row++) {                           /* rows 1-6, centred */
+        int n = strlen(exit_band[row]), x = (80 - n) / 2;
+        for (i = 0; i < n; i++) t[(row + 1) * 80 + x + i] = 0x4E00 | (unsigned char)exit_band[row][i];
     }
-    for (row = 0; row < 17; row++)                            /* rows 6-22 */
-        for (i = 0; license_body[row][i]; i++) t[(row + 6) * 80 + i] = 0x0700 | (unsigned char)license_body[row][i];
+    for (row = 0; row < 15; row++)                            /* rows 8-22 */
+        for (i = 0; license_body[row][i]; i++) t[(row + 8) * 80 + i] = 0x0700 | (unsigned char)license_body[row][i];
     r.h.ah = 2; r.h.bh = 0; r.h.dh = 23; r.h.dl = 0;          /* DOS prompt goes below */
     int86(0x10, &r, &r);
     if (keyfile) {                                            /* test hook: dump the text screen */

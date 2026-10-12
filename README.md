@@ -40,8 +40,8 @@ Output (`~/eXoDOS/DOS-CD`, rebuilt each run; folders are hardlinks, so only ISOs
   - **Cache**: `~/eXoDOS/.exo486-cache/shots/<game>.png`. Delete a file there to pick a new frame, or drop your own 192x120 PNG in its place.
 - **Text menu** (`TXTMENU`, fallback without VGA): it lists the games (2 columns,
   `N`/`P` to page), you type the game number, then the destination (Enter =
-  `C:\JUEGOS\<GAME>`), confirm `Y`, and it runs `XCOPY /S /E` + `ATTRIB -R /S` and shows
-  how to start the game. By hand: `XCOPY D:\CKEEN1\*.* C:\JUEGOS\CKEEN1\ /S /E`.
+  `C:\GAMES\<GAME>`), confirm `Y`, and it runs `XCOPY /S /E` + `ATTRIB -R /S` and shows
+  how to start the game. By hand: `XCOPY D:\CKEEN1\*.* C:\GAMES\CKEEN1\ /S /E`.
   Games that had several C:\ folders (Blood, Final DOOM) have them as subfolders.
 - **GETLINE.COM**: MS-DOS 6 batch files can't read typed text (`SET /P` is NT-only), so
   this 311-byte 8086 program reads a line and writes `SET <VAR>=<text>` to `C:\_M.BAT`,

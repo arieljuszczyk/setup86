@@ -687,9 +687,9 @@ def write_menu(root, n, dk):
         L += [':G%d' % i, 'SET _G=%s' % gm['GU'], 'CLS', 'ECHO.',
               'ECHO  ' + dos_echo(gm['d']['title']), 'GOTO ASK']
     L += [':ASK', 'ECHO.',
-          'ECHO  Copy to which folder?  (Enter = C:\\JUEGOS\\%_G%)',
+          'ECHO  Copy to which folder?  (Enter = C:\\GAMES\\%_G%)',
           '\\GETLINE C:\\_M.BAT _D', 'CALL C:\\_M.BAT',
-          'IF "%_D%"=="" SET _D=C:\\JUEGOS\\%_G%',
+          'IF "%_D%"=="" SET _D=C:\\GAMES\\%_G%',
           'ECHO.', 'ECHO  Copy \\%_G% to %_D% ?  (Y/N)',
           'CHOICE /C:YN /N',
           'IF ERRORLEVEL 2 GOTO P%_P%',
