@@ -93,7 +93,7 @@ static const char *msgs[2][S_COUNT] = {
       "This help",
       "Espa\244ol",
       "Quit",
-      "The game is copied to the folder you choose (C:\\JUEGOS\\<GAME> if you just press ENTER). The last screen shows how to start it." },
+      "The game is copied to the folder you choose (C:\\GAMES\\<GAME> if you just press ENTER). The last screen shows how to start it." },
     { "DOS GAMES",
       "ENTER Instalar  F1 Ayuda  ESC Salir",
       "(sin imagen)",
@@ -498,7 +498,7 @@ static int valid_path(const char *p)
 static int edit_path(Game far *g, char *path)
 {
     int k;
-    sprintf(path, "C:\\JUEGOS\\%Fs", (char far *)g->dir);
+    sprintf(path, lang ? "C:\\JUEGOS\\%Fs" : "C:\\GAMES\\%Fs", (char far *)g->dir);   /* default follows F10 */
     for (;;) {
         dialog(8, 60, 304, 80);
         text_c(70, L(S_WHERE), C_TITLE);
