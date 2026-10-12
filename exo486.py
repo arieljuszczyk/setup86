@@ -739,11 +739,11 @@ def exodium_info():
         if os.path.isfile(EXODIUM_DB):
             db = sqlite3.connect('file:%s?mode=ro' % EXODIUM_DB, uri=True)
             try:
-                for sc, app, year, genre, thumb in db.execute(
-                        "SELECT shortcode, application_path, year, genre, thumbnail_key FROM games "
+                for sc, app, year, genre, thumb, title in db.execute(
+                        "SELECT shortcode, application_path, year, genre, thumbnail_key, title FROM games "
                         "WHERE language = 'EN' AND shortcode IS NOT NULL"):
                     name = os.path.splitext((app or '').replace('\\', '/').split('/')[-1])[0]
-                    _INFO[sc.lower()] = dict(name=name, year=year, genre=genre or '', thumb=thumb)
+                    _INFO[sc.lower()] = dict(name=name, year=year, genre=genre or '', thumb=thumb, title=title or '')
             finally:
                 db.close()
     return _INFO
@@ -843,7 +843,9 @@ def pic_bytes(im):
     return bytes(v >> 2 for v in pal) + bytes(p + 16 for p in q.tobytes())
 
 LIST_ABBREV = [('Leisure Suit Larry', 'Larry'), ('Indiana Jones and the ', 'Indy '), ('Indiana Jones', 'Indy'),
-               ('Commander Keen', 'Keen'), ('Secret of Monkey Island', 'Monkey Island'), (' and the ', ' & ')]
+               ('Commander Keen', 'Keen'), ('Secret of Monkey Island', 'Monkey Island'), ("Sid Meier's ", ''),
+               ('California Games', 'Calif. Games'), ('Railroad Tycoon', 'RR Tycoon'), (' Deluxe', ' DX'),
+               (' and the ', ' & ')]
 
 # genre names shortened to fit the info line, and in Spanish for MENU.EXE's F10
 GENRE_EN = {'Construction and Management Simulation': 'Management', 'Racing & Driving': 'Racing',
@@ -882,6 +884,13 @@ def list_name(title, w=15):
     for a, b in LIST_ABBREV:
         if len(t) > w:
             t = re.sub(re.escape(a), b, t, flags=re.I)
+    roman = {'II': '2', 'III': '3', 'IV': '4', 'V': '5', 'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10'}
+    if len(t) > w:
+        t = re.sub(r'\b(II|III|IV|V|VI|VII|VIII|IX|X)\b', lambda m: roman[m.group(1)], t)
+    if len(t) > w:
+        t = t.replace('CD-ROM', 'CD')
+    if len(t) > w and len(t.replace("'", '')) <= w:       # drop apostrophes only if that makes it fit
+        t = t.replace("'", '')
     return t if len(t) <= w else t[:w - 1].rstrip() + '~'
 
 def write_gui(root, label, dk):
@@ -894,6 +903,19 @@ def write_gui(root, label, dk):
     asc = lambda t: t.encode('ascii', 'replace').decode()
     lines, nopic = ['LABEL ' + label], []
     names = {gm['GU']: list_name(asc(gm['d']['title'].replace(' [ESPANOL]', ''))) for gm in dk}
+    # two games with the same list name (e.g. Dragon's Lair 1989 and its 1993 CD-ROM edition):
+    # use Exodium's fuller title for them
+    seen = {}
+    for gm in dk:
+        seen.setdefault(names[gm['GU']].rstrip('~').lower(), []).append(gm)
+    for group in (v for v in seen.values() if len(v) > 1):
+        for gm in group:
+            db_title = exodium_info().get(gm['g'].lower(), {}).get('title')
+            if db_title:
+                names[gm['GU']] = list_name(asc(db_title))
+    dupes = [n for n in set(names.values()) if list(names.values()).count(n) > 1]
+    if dupes:
+        print('MENU.EXE list: still the same name for several games: ' + ', '.join(sorted(dupes)))
     for gm in sorted(dk, key=lambda x: names[x['GU']].lower()):
         g, GU = gm['g'], gm['GU']
         info = exodium_info().get(g.lower(), {})
