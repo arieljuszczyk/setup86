@@ -6,7 +6,8 @@ For each game, keeps only what a real DOS PC needs: the files DOSBox mounted
 as C:\ for it, minus eXo/DOSBox-only extras (menus, network scripts, DOSBox
 GUS drivers, CD/floppy images, cracks). No launchers or installers are added.
 
-Output (OUT is rebuilt on every run, files are hardlinks into eXoDOS):
+Output (OUT is rebuilt on every run, files are hardlinks into eXoDOS, or copies
+when SRC is on another filesystem, e.g. an SMB share):
   DISCn/<GAME>/...      one folder per game: copy it to C:\<GAME> (DISCn.TXT says how to start it)
   DISCn.TXT             per game: where it goes on C:, how to start it (not on the CD)
   DOSGAMESn.ISO         ISO9660 image of DISCn (only discs chosen with --iso)
@@ -22,6 +23,13 @@ import os, re, sys, shutil, base64
 
 SRC = OUT = None   # set in main()
 LANG = {}          # game -> 'es' when the Spanish version is used (set in main)
+
+def place(src, dst):
+    """Hardlink src to dst; copy it when that can't be done (SRC on another filesystem or a share)."""
+    try:
+        os.link(src, dst)
+    except OSError:
+        shutil.copy2(src, dst)
 
 def game_src(g):
     """Folder with the game's files: the Spanish version if downloaded, else English."""
@@ -339,7 +347,7 @@ def link_tree(src, dst, rel, drop_extra, skip_dirs=frozenset(), names=DROP_NAMES
         if ent.is_dir(follow_symlinks=False):
             size += link_tree(ent.path, os.path.join(dst, dn), rel + '/' + nm, drop_extra, frozenset(), names, False)
         else:
-            os.link(ent.path, os.path.join(dst, dn))
+            place(ent.path, os.path.join(dst, dn))
             size += ent.stat().st_size
     return size
 
@@ -546,7 +554,7 @@ def stage_game(g, d, dst_games):
             os.makedirs(tdir, exist_ok=True)
             dn = dosname(nm) or short83(nm, set(os.listdir(tdir)))
             if not os.path.exists(os.path.join(tdir, dn)):
-                os.link(ent.path, os.path.join(tdir, dn))
+                place(ent.path, os.path.join(tdir, dn))
                 size += ent.stat().st_size
                 if tgt.upper() not in tops:
                     tops.append(tgt.upper())
@@ -725,6 +733,8 @@ def make_iso(root, iso_path, label):
     iso.write(iso_path)
     iso.close()
 
+# Inputs outside SRC. Defaults are where Exodium keeps them; --data DIR (or an
+# exo486-data folder next to SRC) holds copies: exodium.db, posters/, shots/, GameData/.
 EXODIUM_DB = os.path.expanduser('~/.local/share/com.redfox.exodium/exodium.db')
 
 _INFO = None
@@ -760,6 +770,7 @@ def exodium_genres():
 SHOT_W, SHOT_H = 192, 120
 CACHE = os.path.expanduser('~/eXoDOS/.exo486-cache/shots')
 POSTERS = os.path.expanduser('~/content/posters/eXoDOS')
+GAMEDATA = None    # default: SRC/../../Content/GameData/eXoDOS (set in main)
 MENU_EXE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dosmenu', 'MENU.EXE')
 
 def _frame_score(im):
@@ -774,7 +785,7 @@ def video_frame(name):
     """Best-looking frame of eXo's gameplay video for this game, or None."""
     import subprocess, tempfile, zipfile, io
     from PIL import Image
-    z = os.path.join(SRC, '..', '..', 'Content', 'GameData', 'eXoDOS', name + '.zip')
+    z = os.path.join(GAMEDATA, name + '.zip')
     if not name or not os.path.isfile(z) or os.path.getsize(z) == 0:
         return None
     with zipfile.ZipFile(z) as zf:
@@ -947,7 +958,7 @@ def write_gui(root, label, dk):
     return ('no picture: ' + ' '.join(nopic)) if nopic else None
 
 def main():
-    global SRC, OUT
+    global SRC, OUT, EXODIUM_DB, CACHE, POSTERS, GAMEDATA
     import argparse
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('src', help='the eXo/eXoDOS folder with the installed games')
@@ -959,8 +970,22 @@ def main():
                     help='only games of this genre, from Exodium\'s database (e.g. "adventure": genre has '
                          'Adventure but not Action, so no action-adventures or interactive movies)')
     ap.add_argument('--label', default='DOSGAMES', help='ISO file name / volume label prefix (default DOSGAMES)')
+    ap.add_argument('--data', metavar='DIR',
+                    help='folder with exodium.db, posters/, shots/ and GameData/ (default: exo486-data next to '
+                         'src if it exists, else Exodium\'s own locations)')
     a = ap.parse_args()
     SRC, OUT = os.path.abspath(a.src), os.path.abspath(a.out)
+    GAMEDATA = os.path.join(SRC, '..', '..', 'Content', 'GameData', 'eXoDOS')
+    data = a.data or os.path.join(os.path.dirname(SRC), 'exo486-data')
+    if a.data or os.path.isdir(data):
+        if not os.path.isdir(data):
+            sys.exit('no such --data folder: %s' % data)
+        EXODIUM_DB, POSTERS, CACHE, GAMEDATA = (os.path.join(data, n) for n in
+                                                ('exodium.db', 'posters', 'shots', 'GameData'))
+        print('data: %s' % data)
+    if not os.path.isfile(EXODIUM_DB):
+        print('WARNING: no Exodium database at %s: menu titles, genres and box art will be missing'
+              % EXODIUM_DB, file=sys.stderr)
     skip = set()
     for f in a.burned:
         for l in open(f):

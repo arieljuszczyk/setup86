@@ -15,6 +15,20 @@ python3 -m venv ~/.venvs/exo486 && ~/.venvs/exo486/bin/pip install pycdlib pillo
 ~/.venvs/exo486/bin/python exo486.py ~/eXoDOS/eXo/eXoDOS ~/eXoDOS/DOS-CD
 ```
 
+**From a copy on another PC or a network share**: point `src` at the copied
+`eXo/eXoDOS` folder. The inputs that live outside it go in an `exo486-data` folder
+next to it (found automatically), or anywhere with `--data DIR`:
+
+| In `exo486-data/` | Copied from (Exodium's own location) | Without it |
+|---|---|---|
+| `exodium.db` | `~/.local/share/com.redfox.exodium/exodium.db` | no titles/years/genres in the menu, `--genre` matches nothing |
+| `shots/` | `~/eXoDOS/.exo486-cache/shots/` | screenshots are made again from `GameData/` or `posters/` |
+| `GameData/` | `~/eXoDOS/Content/GameData/eXoDOS/` | no new video screenshots |
+| `posters/` | `~/content/posters/eXoDOS/` | no box-art fallback |
+
+When `src` is on another filesystem (e.g. SMB), the output folders are copies rather
+than hardlinks, so they take real space.
+
 Output (`~/eXoDOS/DOS-CD`, rebuilt each run; folders are hardlinks, so only ISOs use space):
 
 | Path | What |
