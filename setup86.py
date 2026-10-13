@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT  (Copyright (c) 2026 Ariel Juszczyk, see LICENSE)
-r"""Copy the DOS files of eXoDOS-installed games into folders for burning to CD.
+r"""Setup86: copy the DOS files of eXoDOS-installed games into folders for burning to CD.
 
 For each game, keeps only what a real DOS PC needs: the files DOSBox mounted
 as C:\ for it, minus eXo/DOSBox-only extras (menus, network scripts, DOSBox
@@ -10,7 +10,7 @@ Output (OUT is rebuilt on every run, files are hardlinks into eXoDOS, or copies
 when SRC is on another filesystem, e.g. an SMB share):
   DISCn/<GAME>/...      one folder per game: copy it to C:\<GAME> (DISCn.TXT says how to start it)
   DISCn.TXT             per game: where it goes on C:, how to start it (not on the CD)
-  DOSGAMESn.ISO         ISO9660 image of DISCn (only discs chosen with --iso)
+  SETUP86-<SERIES>-nn.ISO  ISO9660 image of DISCn (only discs chosen with --iso), e.g. SETUP86-VOLUME-01.ISO
 If a game's Spanish version is downloaded (!spanish/<game>), it is used instead of English.
 Games are packed alphabetically: disc 1 from A until the next game doesn't fit.
 Games that need their own CD (eXo mounts a CD image) are left out entirely.
@@ -19,7 +19,7 @@ automatically from its eXo dosbox.conf/run.bat (listed under WARNINGS).
 After burning a disc, pass its list with --burned DISC1.TXT on later runs so
 new games don't reshuffle what's already burned.
 """
-import os, re, sys, shutil, base64
+import os, re, sys, shutil, base64, time
 
 SRC = OUT = None   # set in main()
 LANG = {}          # game -> 'es' when the Spanish version is used (set in main)
@@ -31,8 +31,16 @@ def place(src, dst):
     except OSError:
         shutil.copy2(src, dst)
 
+# games whose eXo version needs its CD but a hard-disk version was found elsewhere:
+# their files come from EXTRA/<G> instead of the eXo install (G entry with src='extra')
+EXTRA = os.path.expanduser('~/eXoDOS/.setup86-extra')   # default; <data>/extra with a setup86-data folder
+
 def game_src(g):
     """Folder with the game's files: the Spanish version if downloaded, else English."""
+    if G.get(g, {}).get('src') == 'extra':
+        if not os.path.isdir(os.path.join(EXTRA, g)):
+            raise RuntimeError('its files are not in %s' % os.path.join(EXTRA, g))
+        return os.path.join(EXTRA, g)
     return os.path.join(SRC, '!spanish', g) if LANG.get(g) == 'es' else os.path.join(SRC, g)
 
 def game_conf(g):
@@ -163,6 +171,8 @@ G = {
  'Dlair2':  dict(title="Dragon's Lair II - Time Warp (1990)", kind='self',
                  opts=[('Play (press 0 on the numpad to start, numpad to play)', ['CD \\DLAIR2', 'TIMEWARP'])]),
  'Dlair89': dict(title="Dragon's Lair (1989)", kind='self', opts=[('Play', ['CD \\DLAIR89', 'GAME'])]),
+ 'Dlair93': dict(title="Dragon's Lair (1993)", kind='self', cd=True,   # the CD-ROM version (627 MB of video): burned as its own CD
+                 opts=[('Play', ['CD \\DLAIR93', 'DL'])]),
  'DOOM':    dict(title='DOOM (1993)', kind='self',
                  opts=preset_menu(['DOOM'], [('Play DOOM', ['CD \\DOOM', 'DOOM'])], ['SB16', 'GUS', 'SC55'],
                                   setup=['CD \\DOOM', 'SETUP'])),
@@ -189,6 +199,13 @@ G = {
                        ('v1.3 with Roland MT-32', ['CD \\PPERSIA', 'COPY MT32\\*.* . >NUL', 'PRINCE']),
                        ('v1.3 with Sound Blaster + cheats', ['CD \\PPERSIA', 'COPY SB16\\*.* . >NUL', 'PRINCE SBLAST IMPROVED']),
                        ('v1.1 with Game Blaster', ['CD \\PPERSIA\\PRINCE11', 'PRINCE1 GBLAST'])]),
+ 'FIFAInte':dict(title='FIFA International Soccer (1994)', kind='drive', subs=['FIFA'], loose='-',
+                 src='extra',   # hard-disk version (eXo's needs the CD) + eXo's sound presets
+                 opts=snd('FIFA', 'FIFA', ['SB16', 'MT32', 'SC55']) + [('Sound setup', ['CD \\FIFA', 'CONFIG'])]),
+ 'PPersia2':dict(title='Prince of Persia 2 - The Shadow and The Flame (1993)', kind='self',
+                 drop=['Read-Me.txt'],   # popuw.com download note
+                 opts=snd('PPERSIA2', 'PRINCE', ['SB16', 'MT32', 'SC55']) +
+                      [('with Sound Blaster + cheats', ['CD \\PPERSIA2', 'COPY SB16\\*.* . >NUL', 'PRINCE YIPPEEYAHOO'])]),
  # lang='es': entry describes the Spanish pack's layout, only used for that version
  'KQ5':     dict(title="King's Quest V - Absence Makes the Heart Go Yonder! (1990)", kind='drive', lang='es',
                  subs=['floppy', 'ega'], loose='-',   # root = English CD-talkie data eXo's DOS menu never uses
@@ -211,6 +228,18 @@ G = {
                  opts=[('Play (floppy version)', ['CD \\GOB2', 'CALL GO'])]),
  'gob3':    dict(title='Goblins Quest 3 (1993)', kind='drive', lang='es', subs=['f'], loose='-',
                  opts=[('Play (floppy version)', ['CD \\F\\COKTEL\\GOB3', 'GOB3'])]),
+ 'adark1:es':dict(title='Alone in the Dark (1992)', kind='drive', lang='es', subs=['INDARKF'], loose='-',
+                 opts=[('Play (floppy version)', ['CD \\INDARKF', 'ALONE'])]),
+ 'adark2:es':dict(title='Alone in the Dark 2 (1993)', kind='drive', lang='es', subs=['floppy'], loose='-',
+                 opts=[('Play (floppy version)', ['CD \\FLOPPY', 'CALL ALONE'])]),   # root = the CD version
+ 'kyra1':   dict(title='Legend of Kyrandia Book 1 (1992)', kind='drive', lang='es', subs=['WESTWOOD'], loose='-',
+                 drop=['KYRACD', 'KYRACD.BAT'],   # the CD version
+                 opts=[('Play (floppy version)', ['CD \\WESTWOOD\\KYRANDIA', 'MAIN']),
+                       ('Sound setup', ['CD \\WESTWOOD\\KYRANDIA', 'SETUP'])]),
+ 'kyra2':   dict(title='Legend of Kyrandia Book 2 - The Hand of Fate (1993)', kind='drive', lang='es',
+                 subs=['KYRANDI2'], loose='-',   # WESTWOOD\\HOFCD = the CD version
+                 opts=[('Play (floppy version)', ['CD \\KYRANDI2', 'HOF']),
+                       ('Sound setup', ['CD \\KYRANDI2', 'SETUP'])]),
  'loom':    dict(title='Loom (1990)', kind='root', lang='es',    # cd\\ = the CD talkie, root kind skips it
                  opts=[('EGA, AdLib (floppy version)', ['CD \\LOOM\\FLOPPY', 'LOOM V A']),
                        ('EGA, Roland MT-32', ['CD \\LOOM\\FLOPPY', 'LOOM R']),
@@ -248,6 +277,8 @@ DROP_NAMES = {'run.bat', 'network.bat', 'askecho.com', 'setip.bat',
 # Original releases only. Fan-made games are left out; for fan translations
 # (eXo's Spanish pack) the English original is used instead.
 FAN_GAMES = {'ckeen7', 'ckeen8', 'ckeen9'}                       # Keen 7-9: 2006-2011 fan games
+# --genre picks also these games, whose genre says Action too (e.g. "Action; Adventure")
+GENRE_EXTRA = {'adventure': {'adark1', 'adark2'}}
 FAN_TRANSLATIONS = {'kq1', 'lsl1', 'lsl2', 'lsl3', 'sq3', 'sq5',   # Spanish = fan translation
                     'xcomuf'}                                     # (SQ5: + fan voice dub)
 DROP_RE = re.compile(r'(\.exo$|^extip.*|\.sel$|\.bak$|\.pdf$|\.chm$|\.vlp$)', re.I)
@@ -283,9 +314,12 @@ def is_windows_only(path):
                 return False
     return True
 
+KEEP_PRESETS = set()   # preset folders the game's menu options copy from (set per game in stage_game)
+
 def is_preset(path, parent_names):
     ents = list(os.scandir(path))
-    return (os.path.basename(path).lower() in PRESET_NAMES and ents and not any(e.is_dir() for e in ents)
+    return (os.path.basename(path).lower() in PRESET_NAMES and os.path.basename(path).upper() not in KEEP_PRESETS
+            and ents and not any(e.is_dir() for e in ents)
             and {e.name.upper() for e in ents} <= parent_names)
 # top-level dirs never copied as game files (CD/floppy images, cracks, DOSBox GUS drivers)
 TOP_SKIP = {'cd', 'floppy', 'crack', 'ultrasnd'}
@@ -529,6 +563,9 @@ def stage_game(g, d, dst_games):
         raise RuntimeError('folder name is not 8.3')
     gdst = os.path.join(dst_games, GU)
     drop_extra = {x.lower() for x in d.get('drop', [])}
+    KEEP_PRESETS.clear()
+    KEEP_PRESETS.update(m.upper() for _, cmds in d.get('opts', []) for c in cmds
+                        for m in re.findall(r'^COPY\s+(\w+)\\\*\.\*', c, re.I))
     imgs = [os.path.normpath(os.path.join(SRC, '..', f.replace('\\', '/'))) for f in runs_from_floppy(read_autoexec(g))]
     drop_extra |= {os.path.basename(f).lower() for f in imgs}
     tops, size = [], 0
@@ -579,7 +616,7 @@ def howto(g, d):
         for lab, cmds in d['opts']:
             if lab.startswith('Set sound'):
                 continue
-            cmds = tuple(c for c in cmds if not re.match(r'(COPY |IF EXIST|ECHO|PAUSE|FAKEHMA)', c))
+            cmds = tuple(c for c in cmds if not re.match(r'(COPY (?!\w+\\\*\.\* )|IF EXIST|ECHO|PAUSE|FAKEHMA)', c))   # keep preset copies
             if cmds in seen:
                 continue
             seen.add(cmds)
@@ -637,7 +674,7 @@ def play_lines(gm):
                 if m.group(1):
                     steps.append('cd ' + m.group(1).lstrip('\\'))
                 continue
-            steps.append(dos_echo(c))
+            steps.append(dos_echo(re.sub(r'\s*>\s*NUL$', '', c, flags=re.I)))
         label = label.replace('commands from the eXo menu', 'one of')
         line = (label + ': ' if label else '') + ', '.join(steps)
         while len(line) > 74:                       # wrap long lines
@@ -656,7 +693,7 @@ def short_title(t, w):
     w -= len(es)
     return (t if len(t) <= w else t[:w - 1].rstrip() + '~') + es
 
-def write_menu(root, n, dk):
+def write_menu(root, n, dk, series):
     """MENU.BAT: pick a game by number, type a destination, copy it there."""
     with open(os.path.join(root, 'GETLINE.COM'), 'wb') as f:
         f.write(GETLINE_COM)
@@ -669,7 +706,7 @@ def write_menu(root, n, dk):
     num = 0
     for pi, pg in enumerate(pages, 1):
         L += [':P%d' % pi, 'SET _P=%d' % pi, 'CLS',
-              'ECHO  DOS GAMES - DISC %d%s' % (n, ('   (page %d of %d)' % (pi, len(pages))) if len(pages) > 1 else ''),
+              'ECHO  SETUP86 %s %d%s' % (series.upper(), n, ('   (page %d of %d)' % (pi, len(pages))) if len(pages) > 1 else ''),
               'ECHO  ' + '-' * 74]
         items = ['%3d %s' % (num + i + 1, short_title(g['d']['title'], 34))
                  for i, g in enumerate(pg)]
@@ -695,7 +732,7 @@ def write_menu(root, n, dk):
         L += [':G%d' % i, 'SET _G=%s' % gm['GU'], 'CLS', 'ECHO.',
               'ECHO  ' + dos_echo(gm['d']['title']), 'GOTO ASK']
     L += [':ASK', 'ECHO.',
-          'ECHO  Copy to which folder?  (Enter = C:\\GAMES\\%_G%)',
+          'ECHO  Copy to which directory?  (Enter = C:\\GAMES\\%_G%)',
           '\\GETLINE C:\\_M.BAT _D', 'CALL C:\\_M.BAT',
           'IF "%_D%"=="" SET _D=C:\\GAMES\\%_G%',
           'ECHO.', 'ECHO  Copy \\%_G% to %_D% ?  (Y/N)',
@@ -709,7 +746,7 @@ def write_menu(root, n, dk):
     for i, gm in enumerate(dk, 1):
         L += [':H%d' % i] + ['ECHO    ' + dos_echo(x) for x in play_lines(gm)] + ['GOTO DONE']
     L += [':DONE', 'ECHO.', 'PAUSE', 'GOTO P%_P%',
-          ':CFAIL', 'ECHO.', 'ECHO  The copy failed. Check the folder name and the free space.',
+          ':CFAIL', 'ECHO.', 'ECHO  The copy failed. Check the directory name and the free space.',
           'PAUSE', 'GOTO P%_P%',
           ':WRONG', 'ECHO Run TXTMENU from the CD drive: type D:  (your CD letter), then TXTMENU',
           'GOTO QUIT',
@@ -734,7 +771,7 @@ def make_iso(root, iso_path, label):
     iso.close()
 
 # Inputs outside SRC. Defaults are where Exodium keeps them; --data DIR (or an
-# exo486-data folder next to SRC) holds copies: exodium.db, posters/, shots/, GameData/.
+# setup86-data folder next to SRC) holds copies: exodium.db, posters/, shots/, GameData/.
 EXODIUM_DB = os.path.expanduser('~/.local/share/com.redfox.exodium/exodium.db')
 
 _INFO = None
@@ -768,7 +805,7 @@ def exodium_genres():
 # with eXo's logo painted out; else the box art from Exodium's posters pack.
 
 SHOT_W, SHOT_H = 192, 120
-CACHE = os.path.expanduser('~/eXoDOS/.exo486-cache/shots')
+CACHE = os.path.expanduser('~/eXoDOS/.setup86-cache/shots')
 POSTERS = os.path.expanduser('~/content/posters/eXoDOS')
 GAMEDATA = None    # default: SRC/../../Content/GameData/eXoDOS (set in main)
 MENU_EXE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dosmenu', 'MENU.EXE')
@@ -855,7 +892,9 @@ def pic_bytes(im):
 
 LIST_ABBREV = [('Leisure Suit Larry', 'Larry'), ('Indiana Jones and the ', 'Indy '), ('Indiana Jones', 'Indy'),
                ('Commander Keen', 'Keen'), ('Secret of Monkey Island', 'Monkey Island'), ("Sid Meier's ", ''),
-               ('California Games', 'Calif. Games'), ('Railroad Tycoon', 'RR Tycoon'), (' Deluxe', ' DX'),
+               ('California Games', 'Calif. Games'), ('Railroad Tycoon', 'RR Tycoon'),
+               ('Prince of Persia', 'Pr. of Persia'), ('Legend of Kyrandia', 'Kyrandia'),
+               ('Alone in the Dark', 'Alone in Dark'), (' Deluxe', ' DX'),
                (' and the ', ' & ')]
 
 # genre names shortened to fit the info line, and in Spanish for MENU.EXE's F10
@@ -904,15 +943,20 @@ def list_name(title, w=15):
         t = t.replace("'", '')
     return t if len(t) <= w else t[:w - 1].rstrip() + '~'
 
-def write_gui(root, label, dk):
-    """MENU.EXE + _MENU\\MENU.DAT + one _MENU\\<GAME>.PIC per game."""
+def write_gui(root, label, dk, series, vol, build):
+    """MENU.EXE (+ the same program as INSTALL.EXE) + _MENU\\MENU.DAT + one _MENU\\<GAME>.PIC
+    per game + \\SETUP86.ID, which tells an installed menu which disc this is."""
+    ident = ['SET ' + series, 'VOL %d' % vol, 'BUILD ' + build]
+    with open(os.path.join(root, 'SETUP86.ID'), 'wb') as f:
+        f.write(('\r\n'.join(ident) + '\r\n').encode('ascii'))
     if not os.path.isfile(MENU_EXE):
         return 'MENU.EXE not built (see dosmenu/menu.c) - text menu only'
     shutil.copyfile(MENU_EXE, os.path.join(root, 'MENU.EXE'))
+    shutil.copyfile(MENU_EXE, os.path.join(root, 'INSTALL.EXE'))   # started by this name: installs the menu
     mdir = os.path.join(root, '_MENU')
     os.makedirs(mdir, exist_ok=True)
     asc = lambda t: t.encode('ascii', 'replace').decode()
-    lines, nopic = ['LABEL ' + label], []
+    lines, nopic = ['LABEL ' + label] + ident, []
     names = {gm['GU']: list_name(asc(gm['d']['title'].replace(' [ESPANOL]', ''))) for gm in dk}
     # two games with the same list name (e.g. Dragon's Lair 1989 and its 1993 CD-ROM edition):
     # use Exodium's fuller title for them
@@ -924,7 +968,8 @@ def write_gui(root, label, dk):
             db_title = exodium_info().get(gm['g'].lower(), {}).get('title')
             if db_title:
                 names[gm['GU']] = list_name(asc(db_title))
-    dupes = [n for n in set(names.values()) if list(names.values()).count(n) > 1]
+    low = [n.lower() for n in names.values()]
+    dupes = sorted({n for n in names.values() if low.count(n.lower()) > 1})
     if dupes:
         print('MENU.EXE list: still the same name for several games: ' + ', '.join(sorted(dupes)))
     for gm in sorted(dk, key=lambda x: names[x['GU']].lower()):
@@ -958,7 +1003,7 @@ def write_gui(root, label, dk):
     return ('no picture: ' + ' '.join(nopic)) if nopic else None
 
 def main():
-    global SRC, OUT, EXODIUM_DB, CACHE, POSTERS, GAMEDATA
+    global SRC, OUT, EXODIUM_DB, CACHE, POSTERS, GAMEDATA, EXTRA
     import argparse
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('src', help='the eXo/eXoDOS folder with the installed games')
@@ -969,19 +1014,28 @@ def main():
     ap.add_argument('--genre', metavar='GENRE',
                     help='only games of this genre, from Exodium\'s database (e.g. "adventure": genre has '
                          'Adventure but not Action, so no action-adventures or interactive movies)')
-    ap.add_argument('--label', default='DOSGAMES', help='ISO file name / volume label prefix (default DOSGAMES)')
+    ap.add_argument('--series', default='Volume',
+                    help='disc series: "Setup86 <series> <n>" in the menu, SETUP86-<SERIES>-nn.ISO, CD label '
+                         'SETUP86_<S>nn (one word, up to 9 letters; default Volume, e.g. Adventure)')
+    ap.add_argument('--first', type=int, default=1, metavar='N',
+                    help='number of the first disc (default 1): with --burned, continue after the burned '
+                         'discs of this series, e.g. --first 3')
     ap.add_argument('--data', metavar='DIR',
-                    help='folder with exodium.db, posters/, shots/ and GameData/ (default: exo486-data next to '
+                    help='folder with exodium.db, posters/, shots/ and GameData/ (default: setup86-data next to '
                          'src if it exists, else Exodium\'s own locations)')
     a = ap.parse_args()
+    if not re.fullmatch(r'[A-Za-z]{1,9}', a.series):
+        sys.exit('--series: one word, letters only, up to 9 (e.g. Volume, Adventure)')
+    iso_name = lambda n: 'SETUP86-%s-%02d.ISO' % (a.series.upper(), n)
+    cd_label = lambda n: 'SETUP86_%s%02d' % (a.series[0].upper(), n)     # 11 chars: what DOS shows
     SRC, OUT = os.path.abspath(a.src), os.path.abspath(a.out)
     GAMEDATA = os.path.join(SRC, '..', '..', 'Content', 'GameData', 'eXoDOS')
-    data = a.data or os.path.join(os.path.dirname(SRC), 'exo486-data')
+    data = a.data or os.path.join(os.path.dirname(SRC), 'setup86-data')
     if a.data or os.path.isdir(data):
         if not os.path.isdir(data):
             sys.exit('no such --data folder: %s' % data)
-        EXODIUM_DB, POSTERS, CACHE, GAMEDATA = (os.path.join(data, n) for n in
-                                                ('exodium.db', 'posters', 'shots', 'GameData'))
+        EXODIUM_DB, POSTERS, CACHE, GAMEDATA, EXTRA = (os.path.join(data, n) for n in
+                                                       ('exodium.db', 'posters', 'shots', 'GameData', 'extra'))
         print('data: %s' % data)
     if not os.path.isfile(EXODIUM_DB):
         print('WARNING: no Exodium database at %s: menu titles, genres and box art will be missing'
@@ -992,11 +1046,11 @@ def main():
             if l.strip() and not l.startswith(('#', ' ', '\t')):
                 skip.add(l.split()[0].lower())
     if os.path.exists(OUT):
-        if not os.path.exists(os.path.join(OUT, '.exo486')):
+        if not any(os.path.exists(os.path.join(OUT, m)) for m in ('.setup86', '.exo486')):
             sys.exit('refusing: %s exists but was not made by this script' % OUT)
         shutil.rmtree(OUT)
     os.makedirs(OUT)
-    open(os.path.join(OUT, '.exo486'), 'w').close()
+    open(os.path.join(OUT, '.setup86'), 'w').close()
     stage = os.path.join(OUT, '_stage')
     warn, games, cdgames = [], [], []
     # Spanish first: a game whose Spanish version is downloaded (!spanish/<game> +
@@ -1020,8 +1074,9 @@ def main():
     if a.genre:
         genres = exodium_genres()
         want_g = a.genre.lower()
-        names = [g for g in names if want_g in genres.get(g.lower(), '').lower()
-                 and (want_g == 'action' or 'action' not in genres.get(g.lower(), '').lower())]
+        names = [g for g in names if g.lower() in GENRE_EXTRA.get(want_g, ()) or
+                 (want_g in genres.get(g.lower(), '').lower()
+                  and (want_g == 'action' or 'action' not in genres.get(g.lower(), '').lower()))]
     for g in names:
         if g.upper() in {s.upper() for s in skip}:
             continue
@@ -1062,9 +1117,10 @@ def main():
         cur.append(gm); size += gm['size']
     if cur:
         discs.append(cur)
-    want = (set(range(1, len(discs) + 1)) if a.iso == 'all' else set() if a.iso == 'none'
+    want = (set(range(a.first, a.first + len(discs))) if a.iso == 'all' else set() if a.iso == 'none'
             else {int(x) for x in a.iso.split(',')})
-    for n, dk in enumerate(discs, 1):
+    build = time.strftime('%Y%m%d%H%M')               # tells an installed menu that a disc was rebuilt
+    for n, dk in enumerate(discs, a.first):
         root = os.path.join(OUT, 'DISC%d' % n)
         os.makedirs(root)
         lines = ['# DISC%d - game folder, where it goes on C:, how to run it (this file is not on the CD)' % n, '']
@@ -1079,18 +1135,18 @@ def main():
                                                  gm['size'] / 1e6))
             lines.append('    copy \\%s to C:\\%s' % (gm['GU'], gm['GU']))
             lines += ['    ' + remap(h, gm) for h in howto(gm['g'], gm['d'])]
-        write_menu(root, n, dk)
-        note = write_gui(root, '%s%d' % (a.label, n), dk)
+        write_menu(root, n, dk, a.series)
+        note = write_gui(root, 'Setup86 %s %d' % (a.series, n), dk, a.series, n, build)
         if note:
             warn.append('DISC%d menu: %s' % (n, note))
         with open(os.path.join(OUT, 'DISC%d.TXT' % n), 'w') as f:
             f.write('\n'.join(lines) + '\n')
         if n in want:
-            make_iso(root, os.path.join(OUT, '%s%d.ISO' % (a.label, n)), '%s%d' % (a.label, n))
+            make_iso(root, os.path.join(OUT, iso_name(n)), cd_label(n))
     shutil.rmtree(stage, ignore_errors=True)
-    for n, dk in enumerate(discs, 1):
+    for n, dk in enumerate(discs, a.first):
         print('DISC%d: %.0f MB, %s .. %s (%d games)%s' % (n, sum(g['size'] for g in dk) / 1e6, dk[0]['GU'],
-              dk[-1]['GU'], len(dk), '  -> %s%d.ISO' % (a.label, n) if n in want else ''))
+              dk[-1]['GU'], len(dk), '  -> ' + iso_name(n) if n in want else ''))
     print('\nLeft out, need their own CD (%d): %s' % (len(cdgames), ' '.join(cdgames)))
     es_used = sorted(set(spanish) & set(names), key=str.lower)
     print('\nIn Spanish (%d): %s' % (len(es_used), ' '.join(es_used)))
