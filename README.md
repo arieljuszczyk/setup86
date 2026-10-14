@@ -1,34 +1,234 @@
-# Setup86 — from your eXoDOS install to CDs for a real DOS PC
+<p align="center">
+  <img src="art/setup86-icon-256.png" width="128" alt="Setup86" />
+</p>
 
-Copies only the DOS files of the installed games in `~/eXoDOS/eXo/eXoDOS/<game>/` into
-burnable folders/ISOs, with an install menu (`MENU.EXE`, with screenshots) on each disc. What's kept is what eXo's `dosbox.conf` mounted as `C:\` for the
-game. Removed: eXo menus (`run.bat`), DOSBox commands, IPX/null-modem network scripts,
-`.exo` and 0-byte marker files, DOSBox GUS driver folders, cracks, CD/floppy images,
-eXo sound presets (`SB16\`, `GUS\`, `SC55\`, `MT32\`, `Tandy\`, `Herc\`...: folders
-whose files are all copies of files in the parent; kept when a menu option copies from them),
-and helpers eXo adds (DOOMATIC,
-`*_patch.exe`, FAKEHMA, BMOUSE, glide/3dfx emulation DLLs, `.ips`, `.bak`, `.pdf`, `.chm`,
-Duke3D's guide demos). **No launchers
-or installers are added.**
+<h1 align="center">Setup86</h1>
+
+<p align="center">
+  Your <a href="https://www.retro-exo.com/exodos.html">eXoDOS</a> collection on real DOS hardware. Setup86 turns the games you've installed into burnable CDs, each with a graphical VGA install menu, for a real DOS PC.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/runs%20on-MS--DOS%203.3%2B%20%C2%B7%20VGA-blue" alt="Runs on MS-DOS 3.3+ with VGA" />
+  <img src="https://img.shields.io/badge/builds%20on-Linux-lightgrey" alt="Builds on Linux" />
+  <img src="https://img.shields.io/badge/language-C%20%2B%20Python-orange" alt="C + Python" />
+  <a href="https://ko-fi.com/setup86"><img src="https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white" alt="Support on Ko-fi" /></a>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/menu.png" width="820" alt="The Setup86 menu on a DOS PC: the game list on the left, a DOOM screenshot with its year, genre, language and size on the right" />
+</p>
+
+---
+
+## Quick start
+
+1. **Install some games with [Exodium](https://github.com/tvollstaedt/exodium)**: every game you download there can go on a disc.
+2. **Get Setup86** and its requirements (see [Installation](#installation)):
+   ```sh
+   git clone https://github.com/arieljuszczyk/setup86 && cd setup86
+   python3 -m venv ~/.venvs/setup86 && ~/.venvs/setup86/bin/pip install pycdlib pillow
+   ```
+3. **Build the discs**:
+   ```sh
+   ~/.venvs/setup86/bin/python setup86.py ~/eXoDOS/eXo/eXoDOS ~/eXoDOS/SETUP86-VOLUME
+   ```
+4. **Try it in DOSBox** before burning: `./dosbox-test.sh ~/eXoDOS/SETUP86-VOLUME/SETUP86-VOLUME-01.ISO`
+5. **Burn** `SETUP86-VOLUME-01.ISO` to a CD-R.
+6. **On the DOS PC**, put the CD in and run `D:\MENU`. Pick a game, press Enter, and play.
+
+---
+
+## A tribute to eXoDOS
+
+Setup86 would not exist without the [eXoDOS project](https://www.retro-exo.com/exodos.html) and its
+creator, **eXo**, who spent years collecting, configuring and preserving thousands of DOS games, and
+without [Exodium](https://github.com/tvollstaedt/exodium), which makes them easy to browse and
+download on Linux. Setup86 only takes the games you already have and brings them back to the kind
+of machine they were made for. If you enjoy it, please support the eXoDOS project at
+[retro-exo.com](https://www.retro-exo.com).
+
+---
+
+## What it does
+
+eXoDOS games are set up to run in DOSBox: each one comes with launchers, DOSBox configs, emulator
+helpers and several copies of its sound setup. Setup86 keeps only the real DOS files, gives them
+proper 8.3 names, and packs them onto CD-sized discs that a real DOS PC can read.
+
+### Available now
+- ✅ One CD (ISO) per 720 MB of games, with every game in its own folder
+- ✅ **`MENU.EXE`** on every disc: a VGA menu with a screenshot, title, year, genre, language and size for each game
+- ✅ Installs a game to your hard disk with one key, checks the free space first, and shows how to start it
+- ✅ English and Spanish (**F10**), including Spanish versions of the games when you've downloaded them in Exodium
+- ✅ The whole collection in one menu: install it to the hard disk (**F2**) and it asks for the right disc when you install a game
+- ✅ A text-mode menu (`TXTMENU`) for PCs without VGA
+- ✅ Genre collections (`--genre adventure`) and new discs that continue a series you already burned
+- ✅ Runs on anything from an 8086 with VGA to a Pentium, DOS 3.3 or later
+
+### Planned
+- 🔲 Classic eXoDOS installs (LaunchBox/exogui, games still zipped), not only Exodium
+
+> **Compatibility note:** games that need their own CD (Quake, Blood, Tomb Raider, …) are left out
+> of the discs: burn each of those from its CD image. Games keep the sound setup eXo last used, so
+> for your real sound card, run the game's own SETUP or INSTALL program once. Games without a
+> hand-checked entry are converted automatically and listed when you build; test those on the PC.
+
+---
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/install.png" width="820" alt="Install dialog for Raptor: Call of the Shadows, asking for the directory C:\GAMES\RAPTOR" />
+</p>
+
+<p align="center"><em>Press Enter on a game, confirm the directory, and it is copied to your hard disk.</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/install-es.png" width="820" alt="The same dialog in Spanish for Rally Championships, with the directory C:\JUEGOS\RALLYCHA" />
+</p>
+
+<p align="center"><em>Every screen is also in Spanish: press F10.</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/help.png" width="820" alt="Help screen listing the keys: arrows, PgUp PgDn, Home End, A-Z, ENTER, F1, F2, F10, F12 and ESC" />
+</p>
+
+<p align="center"><em>F1 shows every key.</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/about.png" width="820" alt="About screen with the credits, the GitHub page, the MIT License and the Ko-fi link" />
+</p>
+
+<p align="center"><em>F12 shows the About screen.</em></p>
+
+---
+
+## Installation
+
+### What you need
+
+**On the PC that builds the discs** (Linux):
+- [Exodium](https://github.com/tvollstaedt/exodium) with the games you want already downloaded
+- Python 3 with [pycdlib](https://github.com/clalancette/pycdlib) and [Pillow](https://python-pillow.org)
+- [ffmpeg](https://ffmpeg.org), for the game screenshots
+- A CD burner, or a way to get the ISO to one
+
+**On the DOS PC**:
+- Any x86 CPU, MS-DOS 3.3 or later
+- VGA for the graphical menu (the text menu needs DOS 6 and works without VGA)
+- A CD-ROM drive with its DOS driver and MSCDEX
+
+### Set up Setup86
 
 ```sh
-python3 -m venv ~/.venvs/setup86 && ~/.venvs/setup86/bin/pip install pycdlib pillow   # once (+ ffmpeg)
+git clone https://github.com/arieljuszczyk/setup86
+cd setup86
+python3 -m venv ~/.venvs/setup86
+~/.venvs/setup86/bin/pip install pycdlib pillow
+```
+
+### Build and burn
+
+```sh
 ~/.venvs/setup86/bin/python setup86.py ~/eXoDOS/eXo/eXoDOS ~/eXoDOS/SETUP86-VOLUME
 ```
 
-**From a copy on another PC or a network share**: point `src` at the copied
-`eXo/eXoDOS` folder. The inputs that live outside it go in an `setup86-data` folder
-next to it (found automatically), or anywhere with `--data DIR`:
+The output folder has `SETUP86-VOLUME-01.ISO`, a `DISCn/` folder per disc, and a `DISCn.TXT` that
+lists where each game goes and how to start it. Only disc 1 gets an ISO by default: use
+`--iso all` for every disc.
 
-| In `setup86-data/` | Copied from (Exodium's own location) | Without it |
-|---|---|---|
-| `exodium.db` | `~/.local/share/com.redfox.exodium/exodium.db` | no titles/years/genres in the menu, `--genre` matches nothing |
-| `shots/` | `~/eXoDOS/.setup86-cache/shots/` | screenshots are made again from `GameData/` or `posters/` |
-| `GameData/` | `~/eXoDOS/Content/GameData/eXoDOS/` | no new video screenshots |
-| `posters/` | `~/content/posters/eXoDOS/` | no box-art fallback |
+Try the ISO in DOSBox first with `./dosbox-test.sh <ISO>`. It mounts the ISO as `D:` and a folder
+as `C:`, then starts the menu. Then burn it with any CD burning app (K3b, Brasero, …). A low speed
+(8-16x) is easier on old CD-ROM drives.
 
-When `src` is on another filesystem (e.g. SMB), the output folders are copies rather
-than hardlinks, so they take real space.
+### On the DOS PC
+
+| Key | What it does |
+|---|---|
+| ↑ ↓, PgUp PgDn, Home End | Move through the list |
+| A-Z | Jump to the next game starting with that letter |
+| Enter | Install the game (default `C:\GAMES\<GAME>`) |
+| F1 | Help |
+| F2 | Install the menu to the hard disk (`C:\SETUP86`), with all your discs in one list |
+| F10 | English / Español |
+| F12 | About (needs a 101-key keyboard) |
+| Esc | Quit |
+
+### More discs later
+
+Keep the `DISCn.TXT` of each disc you burn, outside the output folder, and pass it on the next
+build. Those games are skipped, and the new discs continue the numbering:
+
+```sh
+~/.venvs/setup86/bin/python setup86.py ~/eXoDOS/eXo/eXoDOS ~/eXoDOS/SETUP86-VOLUME \
+    --burned ~/eXoDOS/burned/DISC1.TXT --first 2
+```
+
+For a genre collection: `--genre adventure --series Adventure`, into its own output folder.
+
+---
+
+## How it's made
+
+The menu that runs on the DOS PC, `MENU.EXE`, is written in **C for 16-bit DOS** and built with
+[OpenWatcom 2](https://github.com/open-watcom/open-watcom-v2): real mode, VGA mode 13h, its own
+graphics and font drawing, and a ~48 KB program that runs on an 8086. The tiny `GETLINE.COM` used
+by the text menu is 8086 assembly. The disc builder, `setup86.py`, is Python.
+
+Setup86 was developed with the help of [Claude Code](https://claude.com/claude-code), Anthropic's
+AI coding assistant.
+
+---
+
+## Technical details
+
+<details>
+<summary><b>What goes on the discs, and what is left out</b></summary>
+
+Setup86 copies only the DOS files of the installed games in `~/eXoDOS/eXo/eXoDOS/<game>/`: what
+eXo's `dosbox.conf` mounted as `C:\` for the game. **No launchers or installers are added.**
+
+Removed: eXo menus (`run.bat`), DOSBox commands, IPX/null-modem network scripts, `.exo` and 0-byte
+marker files, DOSBox GUS driver folders, cracks, CD/floppy images, eXo sound presets (`SB16\`,
+`GUS\`, `SC55\`, `MT32\`, `Tandy\`, `Herc\`...: folders whose files are all copies of files in the
+parent; kept when a menu option copies from them), and helpers eXo adds (DOOMATIC, `*_patch.exe`,
+FAKEHMA, BMOUSE, glide/3dfx emulation DLLs, `.ips`, `.bak`, `.pdf`, `.chm`, Duke3D's guide demos).
+
+- **Packing**: alphabetical by folder name, 720 MB per disc (80-min CD-R). A game that doesn't fit
+  waits, and the following (smaller) games still go on the current disc.
+- **Left out**: any game where eXo mounts a CD (`imgmount`/`mount ... -t cdrom` in its config, or a
+  CD from the game's own `cd\` folder in its `run.bat` menu). Each of those gets burned onto its own
+  CD and installed from it. Exception: a Spanish pack that also ships a floppy version (Dark Seed,
+  Dune, Gobliiins 1-3, Loom, Space Quest IV) goes on the data disc as that floppy version, via a
+  hand entry.
+- **Spanish first**: if a game's Spanish version is downloaded (`eXoDOS/!spanish/<game>` +
+  `!dos/!spanish/<game>/dosbox.conf`), it's used instead of English (`[ESPANOL]` in `DISCn.TXT`).
+  The `!spanish/*.zip` files are 0-byte Exodium placeholders. The run's output lists games with a
+  Spanish version in eXo that isn't downloaded yet: get them in Exodium and rerun.
+- **Special cases handled**:
+  - **Games that run from a floppy image:** for example Italy 90, which eXo mounts as `A:` and starts there. The image is FAT12/16, and its files (minus the floppy's own DOS boot files) are extracted into the game folder.
+  - **Self-booting games** (eXo uses `BOOT`) are skipped with a message: write their image to a real floppy.
+  - **Windows-only folders** (all `.EXE` are Windows GUI, such as the AGS fan remakes KQ3 Redux and KQ4 Retold) are dropped.
+  - **Folders whose name isn't 8.3** are dropped and listed.
+  - **A `floppy` folder** is skipped only if it holds nothing but images.
+  - **Original releases only**: fan-made content is left out.
+    - **Fan add-ons**: the Monkey Island 1/2 Spanish fan talkies, the LSL3 mouse mod (`LS3pp`) and the Plutonia MIDI pack (`plutmid`). The official Indy 4 CD talkie stays.
+    - **Fan games** (`FAN_GAMES`): Commander Keen 7-9.
+    - **Fan translations** (`FAN_TRANSLATIONS`): KQ1, LSL1-3, SQ3, SQ5 (with a fan voice dub) and X-COM use the English original instead. If English isn't downloaded, the game is left out and listed.
+  - **Hand entries per language**: an entry with `lang='es'` is used only for the Spanish version. Use the key `<game>:es` when the English version already has an entry (e.g. `dune:es`).
+  - **Spanish versions eXo runs only in ScummVM** (no DOS config) are listed, so you can get the English one.
+- **Auto-converted games**: the games in the `G` table have hand-checked notes. Any other game is
+  auto-converted from its eXo config and listed under WARNINGS. Test those on the PC, and add a `G`
+  entry if one needs fixing.
+- **Sound**: each game keeps the config eXo last used (often Sound Blaster at DOSBox's
+  `A220 I7 D1 H5`). For your real card, run the game's own SETUP/INSTALL program.
+
+</details>
+
+<details>
+<summary><b>Output files</b></summary>
 
 Output (`~/eXoDOS/SETUP86-VOLUME`, rebuilt each run; folders are hardlinks, so only ISOs use space):
 
@@ -42,10 +242,52 @@ Output (`~/eXoDOS/SETUP86-VOLUME`, rebuilt each run; folders are hardlinks, so o
 | `TXTMENU.BAT` + `GETLINE.COM` (on each disc) | text-mode fallback menu, see below |
 | `DISCn.TXT` | per game: where it goes on `C:` and how to start it (not on the disc) |
 
+</details>
+
+<details>
+<summary><b>Building from a copy on another PC or a network share</b></summary>
+
+Point `src` at the copied `eXo/eXoDOS` folder. The inputs that live outside it go in an
+`setup86-data` folder next to it (found automatically), or anywhere with `--data DIR`:
+
+| In `setup86-data/` | Copied from (Exodium's own location) | Without it |
+|---|---|---|
+| `exodium.db` | `~/.local/share/com.redfox.exodium/exodium.db` | no titles/years/genres in the menu, `--genre` matches nothing |
+| `shots/` | `~/eXoDOS/.setup86-cache/shots/` | screenshots are made again from `GameData/` or `posters/` |
+| `GameData/` | `~/eXoDOS/Content/GameData/eXoDOS/` | no new video screenshots |
+| `posters/` | `~/content/posters/eXoDOS/` | no box-art fallback |
+
+When `src` is on another filesystem (e.g. SMB), the output folders are copies rather than
+hardlinks, so they take real space.
+
+</details>
+
+<details>
+<summary><b>Build options</b></summary>
+
+- **Series and genre collections**: discs are named "Setup86 <series> <n>" (`--series`, default
+  `Volume`). `--genre adventure --series Adventure` builds only one genre into
+  `SETUP86-ADVENTURE-01.ISO`, ... Use its own output folder, e.g. `~/eXoDOS/SETUP86-ADVENTURE`. The
+  genre comes from Exodium's database (`~/.local/share/com.redfox.exodium/exodium.db`, read-only).
+  A game matches if its genre contains the word and not "Action" (so no action-adventures or
+  interactive movies), unless you ask for `--genre action`.
+- **ISOs**: by default only disc 1 gets an ISO. Use `--iso 2`, `--iso all` or `--iso none`.
+- **After burning a disc**: keep its `DISCn.TXT` outside the output folder (it is rebuilt) and pass
+  it on later runs: `--burned ~/eXoDOS/burned/DISC1.TXT`. Its games are skipped, so new games (even
+  ones starting with A) go onto the next discs instead of reshuffling. Add `--first N` so the new
+  discs continue the numbering of that series (e.g. `--first 3` builds Volume 3, 4...): an installed
+  menu tells discs apart by series + number.
+
+</details>
+
+<details>
+<summary><b>The menu (MENU.EXE) in detail</b></summary>
+
 - **On the DOS PC**: from the CD drive (`D:`) run `MENU`. It needs VGA (any CPU, DOS 3.3+).
   - **Screen**: the game list on the left, and a screenshot, title, year, genre, language and size on the right.
   - **Keys**: arrows, PgUp/PgDn, Home/End, or a letter to jump to the next game with that initial.
   - **F1** shows a help screen. **F10** switches every screen between English and Spanish: header, help, dialogs, language and genre (`GENRE_ES` in `MENU.DAT`). Accents use the VGA font's own CP437 characters. Game titles and play commands aren't translated.
+  - **F12** shows the About screen: credits, the GitHub page, the license and the Ko-fi link. It needs a 101-key keyboard; older 84-key keyboards have no F12.
   - **Enter**: asks for the directory (default `C:\GAMES\<GAME>`, or `C:\JUEGOS\<GAME>` in Spanish; checked as an 8.3 path). It checks free space (cluster-rounded) and warns if the directory already has files. Then it copies with a progress bar (Esc stops) and shows how to start the game.
 - **Menu on the hard disk** (the whole collection in one list): run `D:\INSTALL` (or press F2 in
   the disc's menu). It asks for the directory (default `C:\SETUP86`, editable) and copies the program
@@ -61,10 +303,6 @@ Output (`~/eXoDOS/SETUP86-VOLUME`, rebuilt each run; folders are hardlinks, so o
     list), `_MENU\Vnnn.DAT` (that disc's `MENU.DAT`) and `_MENU\Vnnn\*.PIC`.
   - Disk errors (empty drive, disc being changed) are failed quietly by a critical-error handler,
     so DOS's "Abort, Retry, Fail?" never lands on the VGA screen.
-- **Try a disc on this PC**: `./dosbox-test.sh [ISO] [C-folder]`. It mounts the ISO as `D:` and a folder (default `~/eXoDOS/dosbox-c`, kept between runs) as `C:` in Exodium's `dosbox-staging`, then starts the menu. For example: `./dosbox-test.sh ~/eXoDOS/SETUP86-ADVENTURE/SETUP86-ADVENTURE-01.ISO`. Ctrl+F10 frees the mouse; Ctrl+F9 or `exit` quits DOSBox.
-- **MENU.EXE source**: `dosmenu/menu.c`, C for OpenWatcom 2 (16-bit real mode, mode 13h). The built `dosmenu/MENU.EXE` is committed and copied onto each disc.
-  - **Build**: unpack OpenWatcom's `ow-snapshot.tar.xz` into `~/.local/opt/openwatcom`, then run `WATCOM=~/.local/opt/openwatcom PATH=$WATCOM/binl64:$PATH INCLUDE=$WATCOM/h wcl -q -w4 -bt=dos -ml -0 -os -k12288 -fe=MENU.EXE menu.c`.
-  - **Test**: `MENU /T:KEYS.TXT` reads keys from a file (`UP DOWN ENTER ESC F1 F2 F10 SHOT TEXT:abc`...). `SHOT` dumps the screen to `SHOTnn.BIN` (768-byte palette + 64000 pixels). It runs headless in Exodium's `dosbox-staging` (`SDL_VIDEODRIVER=dummy`), with the ISO mounted via `imgmount d X.ISO -t iso`.
 - **Screenshots**: a frame from eXo's gameplay video in `~/eXoDOS/Content/GameData/eXoDOS/<game>.zip`. Exodium downloads it with the game.
   - **Frame choice**: the most detailed of 7 frames (20-80% into the video). eXo's logo is painted out (ffmpeg `delogo`), then the frame is scaled to 192x120 and reduced to 240 colours.
   - **Fallback**: no video means the box art from Exodium's posters pack (`~/content/posters/eXoDOS/`).
@@ -80,52 +318,26 @@ Output (`~/eXoDOS/SETUP86-VOLUME`, rebuilt each run; folders are hardlinks, so o
   bytes). `test_getline.py` runs it in a CPU emulator with simulated keystrokes. The menu
   needs `CHOICE` (DOS 6) and writes the temp file to `C:\`. It uses only 4 short variables.
   If DOS still says "Out of environment space", add `/E:1024` to `SHELL=` in CONFIG.SYS.
-- **Spanish first**: if a game's Spanish version is downloaded (`eXoDOS/!spanish/<game>` +
-  `!dos/!spanish/<game>/dosbox.conf`), it's used instead of English (`[ESPANOL]` in
-  `DISCn.TXT`). The `!spanish/*.zip` files are 0-byte Exodium placeholders. The run's
-  output lists games with a Spanish version in eXo that isn't downloaded yet: get them
-  in Exodium and rerun.
-- **Packing**: alphabetical by folder name, 720 MB per disc (80-min CD-R). A game that
-  doesn't fit waits, and the following (smaller) games still go on the current disc.
-- **Left out**: any game where eXo mounts a CD (`imgmount`/`mount ... -t cdrom` in its
-  config, or a CD from the game's own `cd\` folder in its `run.bat` menu). Each of those
-  gets burned onto its own CD and installed from it. Exception: a Spanish pack that also
-  ships a floppy version (Dark Seed, Dune, Gobliiins 1-3, Loom, Space Quest IV) goes on
-  the data disc as that floppy version, via a hand entry.
-- **Series and genre collections**: discs are named "Setup86 <series> <n>" (`--series`, default
-  `Volume`). `--genre adventure --series Adventure` builds only one genre into
-  `SETUP86-ADVENTURE-01.ISO`, ... Use its own output folder, e.g. `~/eXoDOS/SETUP86-ADVENTURE`. The genre
-  comes from Exodium's database (`~/.local/share/com.redfox.exodium/exodium.db`, read-only).
-  A game matches if its genre contains the word and not "Action" (so no action-adventures or
-  interactive movies), unless you ask for `--genre action`.
-- **ISOs**: by default only disc 1 gets an ISO. Use `--iso 2`, `--iso all` or `--iso none`.
-- **After burning a disc**: keep its `DISCn.TXT` outside the output folder (it is rebuilt)
-  and pass it on later runs: `--burned ~/eXoDOS/burned/DISC1.TXT`. Its games are skipped,
-  so new games (even ones starting with A) go onto the next discs instead of reshuffling.
-  Add `--first N` so the new discs continue the numbering of that series (e.g. `--first 3` builds
-  Volume 3, 4...): an installed menu tells discs apart by series + number.
-- **Special cases handled**:
-  - **Games that run from a floppy image:** for example Italy 90, which eXo mounts as `A:` and starts there. The image is FAT12/16, and its files (minus the floppy's own DOS boot files) are extracted into the game folder.
-  - **Self-booting games** (eXo uses `BOOT`) are skipped with a message: write their image to a real floppy.
-  - **Windows-only folders** (all `.EXE` are Windows GUI, such as the AGS fan remakes KQ3 Redux and KQ4 Retold) are dropped.
-  - **Folders whose name isn't 8.3** are dropped and listed.
-  - **A `floppy` folder** is skipped only if it holds nothing but images.
-  - **Original releases only**: fan-made content is left out.
-    - **Fan add-ons**: the Monkey Island 1/2 Spanish fan talkies, the LSL3 mouse mod (`LS3pp`) and the Plutonia MIDI pack (`plutmid`). The official Indy 4 CD talkie stays.
-    - **Fan games** (`FAN_GAMES`): Commander Keen 7-9.
-    - **Fan translations** (`FAN_TRANSLATIONS`): KQ1, LSL1-3, SQ3, SQ5 (with a fan voice dub) and X-COM use the English original instead. If English isn't downloaded, the game is left out and listed.
-  - **Hand entries per language**: an entry with `lang='es'` is used only for the Spanish version. Use the key `<game>:es` when the English version already has an entry (e.g. `dune:es`).
-  - **Spanish versions eXo runs only in ScummVM** (no DOS config) are listed, so you can get the English one.
-- **Auto-converted games**: the games in the `G` table have hand-checked notes. Any other
-  game is auto-converted from its eXo config and listed under WARNINGS. Test those on the
-  PC, and add a `G` entry if one needs fixing.
-- **Sound**: each game keeps the config eXo last used (often Sound Blaster at DOSBox's
-  `A220 I7 D1 H5`). For your real card, run the game's own SETUP/INSTALL program.
+
+</details>
+
+<details>
+<summary><b>Development: building and testing MENU.EXE</b></summary>
+
+- **Source**: `dosmenu/menu.c`, C for OpenWatcom 2 (16-bit real mode, mode 13h). The built `dosmenu/MENU.EXE` is committed and copied onto each disc.
+- **Build**: unpack OpenWatcom's `ow-snapshot.tar.xz` into `~/.local/opt/openwatcom`, then run `WATCOM=~/.local/opt/openwatcom PATH=$WATCOM/binl64:$PATH INCLUDE=$WATCOM/h wcl -q -w4 -bt=dos -ml -0 -os -k12288 -fe=MENU.EXE menu.c`.
+- **Test**: `MENU /T:KEYS.TXT` reads keys from a file (`UP DOWN ENTER ESC F1 F2 F10 F12 SHOT TEXT:abc`...). `SHOT` dumps the screen to `SHOTnn.BIN` (768-byte palette + 64000 pixels). It runs headless in Exodium's `dosbox-staging` (`SDL_VIDEODRIVER=dummy`), with the ISO mounted via `imgmount d X.ISO -t iso`.
+- **Try a disc on this PC**: `./dosbox-test.sh [ISO] [C-folder]`. It mounts the ISO as `D:` and a folder (default `~/eXoDOS/dosbox-c`, kept between runs) as `C:` in Exodium's `dosbox-staging`, then starts the menu. For example: `./dosbox-test.sh ~/eXoDOS/SETUP86-ADVENTURE/SETUP86-ADVENTURE-01.ISO`. Ctrl+F10 frees the mouse; Ctrl+F9 or `exit` quits DOSBox.
+
+</details>
+
+---
 
 ## Disclaimer
 
-- **No games included.** Setup86 is a tool: it contains no games, eXoDOS files, screenshots or
-  box art. It only works on an eXoDOS / Exodium install you already have.
+- **No games included.** Setup86 is a tool: it contains no games, eXoDOS files or box art (the
+  screenshots in `docs/` only show what the menu looks like). It only works on an eXoDOS / Exodium
+  install you already have.
 - **Not affiliated** with eXoDOS, the eXo team or Exodium. All game names and trademarks belong
   to their owners.
 - **Personal use.** The discs you build contain games that are still under copyright. Build them

@@ -11,12 +11,13 @@
  *    for the right disc (found by its \SETUP86.ID) before copying. F2 (or a new
  *    disc found at start) adds the disc in the CD drive to the list.
  * Installing a game copies its directory from the disc to a directory the user
- * types.  F1 shows a help screen, F10 switches English / Spanish.
+ * types.  F1 shows a help screen, F10 switches English / Spanish, F12 shows
+ * the About screen.
  *
  * Build (OpenWatcom 2): wcl -q -w4 -bt=dos -ml -0 -os -k12288 -fe=MENU.EXE menu.c
  *
  * Test hook: MENU /T:<file> reads the keys from <file> instead of the
- * keyboard (UP DOWN PGUP PGDN HOME END ENTER ESC BKSP F1 F10 SHOT TEXT:<chars>);
+ * keyboard (UP DOWN PGUP PGDN HOME END ENTER ESC BKSP F1 F2 F10 F12 SHOT TEXT:<chars>);
  * SHOT dumps palette + screen to SHOTnn.BIN.  Exits at the end of the file.
  */
 #include <stdio.h>
@@ -63,7 +64,8 @@ typedef struct {
 /* ---------- screen texts: English / Spanish (CP437, the VGA font's own accents) ---------- */
 enum { S_HEADER, S_FOOTER, S_NOPIC, S_SPANISH, S_ENGLISH, S_PRESS, S_WHERE, S_OKCANCEL, S_BADPATH, S_NODRIVE, S_NEEDS, S_NOSPACE, S_NOMKDIR, S_HASFILES, S_OVERWRITE, S_NOMEM, S_COPYING, S_BUFFER, S_FILES, S_ERRREAD, S_ERRCREATE, S_ERRWRITE, S_STOPPED, S_INCOMPLETE, S_INSTALLED, S_INFILES, S_TOPLAY, S_HELP, S_H_MOVE, S_H_PAGE, S_H_ENDS, S_H_JUMP, S_H_INST, S_H_HELP, S_H_LANG, S_H_QUIT, S_H_NOTE,
        S_FOOTER_C, S_H_F2D, S_H_F2C, S_MWHERE, S_MDONE, S_MRUN, S_INSERT, S_READY, S_NEWDISC, S_ADDQ,
-       S_NEWBUILD, S_UPDQ, S_NODISC, S_ADDED, S_NOTONDISC, S_MCOPYFAIL, S_DISCLINE, S_TOOMANY, S_COUNT };
+       S_NEWBUILD, S_UPDQ, S_NODISC, S_ADDED, S_NOTONDISC, S_MCOPYFAIL, S_DISCLINE, S_TOOMANY,
+       S_H_ABOUT, S_ABOUT, S_A_BY, S_A_MADE1, S_A_MADE2, S_A_FREE, S_A_DONATE, S_COUNT };
 static const char *msgs[2][S_COUNT] = {
     { "SETUP86 COLLECTION",
       "ENTER Install F1 Help F2 HD ESC Quit",
@@ -103,7 +105,7 @@ static const char *msgs[2][S_COUNT] = {
       "Quit",
       "The game is copied to the directory you choose (C:\\GAMES\\<GAME> if you just press ENTER). The last screen shows how to start it.",
       "ENTER Inst. F1 Help F2 +CD ESC Quit",
-      "Menu to the hard disk",
+      "Install menu to hard disk",
       "Add the CD in the drive",
       "Install the menu in which directory?",
       "Menu installed",
@@ -119,7 +121,14 @@ static const char *msgs[2][S_COUNT] = {
       "Not on this version of the disc",
       "Cannot copy the menu files",
       "Disc %s %d",
-      "Too many discs in the list" },
+      "Too many discs in the list",
+      "About Setup86",
+      "About Setup86",
+      "Created by Ariel Juszczyk",
+      "Made for the eXoDOS collection,",
+      "to run on real x86 hardware.",
+      "Free & open source - MIT License",
+      "Please donate to support it:" },
     { "SETUP86 COLLECTION",
       "ENTER Inst. F1 Ayuda F2 HD ESC Salir",
       "(sin imagen)",
@@ -158,7 +167,7 @@ static const char *msgs[2][S_COUNT] = {
       "Salir",
       "El juego se copia al directorio que elija (C:\\JUEGOS\\<JUEGO> si s\242lo pulsa ENTER). La \243ltima pantalla muestra c\242mo iniciarlo.",
       "ENTER Inst F1 Ayuda F2 +CD ESC Salir",
-      "Men\243 al disco duro",
+      "Instalar men\243 al disco duro",
       "Agregar el CD de la unidad",
       "\250En qu\202 directorio instalar el men\243?",
       "Men\243 instalado",
@@ -174,7 +183,14 @@ static const char *msgs[2][S_COUNT] = {
       "No est\240 en esta versi\242n del disco",
       "No se pudo copiar el men\243",
       "Disco %s %d",
-      "Demasiados discos en la lista" } };
+      "Demasiados discos en la lista",
+      "Acerca de Setup86",
+      "Acerca de Setup86",
+      "Creado por Ariel Juszczyk",
+      "Hecho para la colecci\242n eXoDOS,",
+      "para usar en PCs x86 reales.",
+      "Libre y gratuito - Licencia MIT",
+      "Si quiere apoyar su desarrollo:" } };
 static int lang;                      /* 0 English, 1 Spanish (F10) */
 #define L(id) msgs[lang][id]
 
@@ -303,7 +319,7 @@ static void text_c(int y, const char far *s, int fg)   /* centred */
 /* ---------- keyboard (or test script) ---------- */
 
 enum { K_UP = 0x148, K_DOWN = 0x150, K_PGUP = 0x149, K_PGDN = 0x151,
-       K_HOME = 0x147, K_END = 0x14F, K_F1 = 0x13B, K_F2 = 0x13C, K_F10 = 0x144,
+       K_HOME = 0x147, K_END = 0x14F, K_F1 = 0x13B, K_F2 = 0x13C, K_F10 = 0x144, K_F12 = 0x186,
        K_ENTER = 13, K_ESC = 27, K_BKSP = 8 };
 
 static char pending[64];
@@ -319,6 +335,12 @@ static void dump_screen(void)
     for (i = 0; i < 768; i++) fputc(inp(0x3C9), f);
     for (i = 0; i < 200; i++) fwrite(vga + i * 320, 1, 320, f);
     fclose(f);
+}
+
+/* the BIOS reports a 101-key keyboard (and so supports int 16h function 10h) */
+static int enhanced_kbd(void)
+{
+    return *(unsigned char far *)MK_FP(0x40, 0x96) & 0x10;
 }
 
 static int getkey(void)
@@ -340,14 +362,15 @@ static int getkey(void)
             if (!strcmp(tok, "F1")) return K_F1;
             if (!strcmp(tok, "F10")) return K_F10;
             if (!strcmp(tok, "F2")) return K_F2;
+            if (!strcmp(tok, "F12")) return K_F12;
             if (!strncmp(tok, "KEY:", 4)) return (unsigned char)tok[4];
             if (!strcmp(tok, "SHOT")) { dump_screen(); continue; }
             if (!strncmp(tok, "TEXT:", 5)) { strcpy(pending, tok + 5); npend = strlen(pending); continue; }
         }
     } else {
         union REGS r;
-        r.h.ah = 0; int86(0x16, &r, &r);
-        return r.h.al ? r.h.al : 0x100 + r.h.ah;
+        r.h.ah = enhanced_kbd() ? 0x10 : 0; int86(0x16, &r, &r);   /* only 10h returns F11/F12 */
+        return r.h.al && !(r.h.al == 0xE0 && r.h.ah) ? r.h.al : 0x100 + r.h.ah;
     }
 }
 
@@ -355,7 +378,7 @@ static int key_waiting(void)
 {
     union REGS r;
     if (keyfile) return 0;
-    r.h.ah = 1; int86(0x16, &r, &r);
+    r.h.ah = enhanced_kbd() ? 0x11 : 1; int86(0x16, &r, &r);
     return !(r.x.cflag & INTR_ZF);
 }
 
@@ -598,20 +621,37 @@ static void help(void)
     static const struct { const char *key; int id; } rows[] = {
         { "\x18 \x19", S_H_MOVE }, { "PgUp PgDn", S_H_PAGE }, { "Home End", S_H_ENDS },
         { "A-Z", S_H_JUMP }, { "ENTER", S_H_INST }, { "F1", S_H_HELP }, { "F2", -1 },
-        { "F10", S_H_LANG }, { "ESC", S_H_QUIT } };
+        { "F10", S_H_LANG }, { "F12", S_H_ABOUT }, { "ESC", S_H_QUIT } };
     char lines[5][41];
-    int i, n, y = 40;
+    int i, n, y = 36;
     fill(0, 10, 320, 180, C_BG);
     dialog(4, 14, 312, 172);
     text_c(22, L(S_HELP), C_TITLE);
-    for (i = 0; i < 9; i++, y += 9) {
+    for (i = 0; i < 10; i++, y += 9) {
         int id = rows[i].id >= 0 ? rows[i].id : coll ? S_H_F2C : S_H_F2D;
         text(16, y, rows[i].key, C_FIELDTX, -1, 10);
-        text(104, y, L(id), C_TEXT, -1, 26);
+        text(96, y, L(id), C_TEXT, -1, 27);
     }
     y += 6;
     n = wrap(L(S_H_NOTE), 36, lines, 4);
     for (i = 0; i < n; i++, y += 9) text(16, y, lines[i], C_DIM, -1, 36);
+    text_c(172, L(S_PRESS), C_DIM);
+    getkey();
+}
+
+static void about(void)
+{
+    fill(0, 10, 320, 180, C_BG);
+    dialog(4, 14, 312, 172);
+    text_c(22, L(S_ABOUT), C_TITLE);
+    text_c(42, L(S_A_BY), C_TEXT);
+    text_c(52, "(c) 2026 ariel.juszczyk@gmail.com", C_DIM);
+    text_c(72, L(S_A_MADE1), C_TEXT);
+    text_c(81, L(S_A_MADE2), C_TEXT);
+    text_c(101, L(S_A_FREE), C_TEXT);
+    text_c(111, "github.com/arieljuszczyk/setup86", C_FIELDTX);
+    text_c(131, L(S_A_DONATE), C_TEXT);
+    text_c(141, "ko-fi.com/setup86", C_FIELDTX);
     text_c(172, L(S_PRESS), C_DIM);
     getkey();
 }
@@ -1173,6 +1213,7 @@ int main(int argc, char **argv)
         case K_HOME: sel = 0; break;
         case K_END:  sel = ngames - 1; break;
         case K_F1:  help(); redraw(top, sel); continue;
+        case K_F12: about(); redraw(top, sel); continue;
         case K_F10: lang = !lang; redraw(top, sel); continue;
         case K_F2:
             if (coll) { if (add_disc(0)) { sel = top = 0; } }
