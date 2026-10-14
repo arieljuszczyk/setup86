@@ -2,8 +2,6 @@
   <img src="art/setup86-social-1280x640.gif" width="820" alt="Setup86: disc builder, installer and menu for real x86 PCs" />
 </p>
 
-<h1 align="center">Setup86</h1>
-
 <p align="center">
   Your <a href="https://www.retro-exo.com/exodos.html">eXoDOS</a> collection on real DOS hardware. Setup86 turns the games you've installed into burnable CDs, each with a graphical VGA install menu, for a real DOS PC.
 </p>
