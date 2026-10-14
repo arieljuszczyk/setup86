@@ -35,8 +35,82 @@ def place(src, dst):
 # their files come from EXTRA/<G> instead of the eXo install (G entry with src='extra')
 EXTRA = os.path.expanduser('~/eXoDOS/.setup86-extra')   # default; <data>/extra with a setup86-data folder
 
+# classic eXoDOS keeps games zipped: --games unzips the chosen ones here (see unzip_game)
+UNZIP_DIR = None
+UNZ = set()        # games whose files come from UNZIP_DIR
+
+def game_index():
+    """For --games: folder name, '<Title (Year)>' and '<Title>' (lowercase) -> the game's folder,
+    plus folder -> its zip name, from eXo's !dos/<game>/<Title (Year)>.bat."""
+    idx, zips = {}, {}
+    for e in os.scandir(os.path.join(SRC, '!dos')):
+        if not e.is_dir() or e.name.startswith('!'):
+            continue
+        idx[e.name.lower()] = e.name
+        for f in os.listdir(e.path):
+            if re.search(r'\(\d{4}[^)]*\)\.bat$', f, re.I):
+                name = f[:-4]
+                zips[e.name] = name
+                idx.setdefault(name.lower(), e.name)
+                idx.setdefault(re.sub(r'\s*\(\d{4}[^)]*\)$', '', name).lower(), e.name)
+    return idx, zips
+
+def _unzip(zpath, dest):
+    """Extract an eXo game zip (one top folder, the game's) into dest, without that top folder."""
+    import zipfile, time
+    with zipfile.ZipFile(zpath) as z:
+        for m in z.infolist():
+            parts = [x for x in m.filename.replace('\\', '/').split('/') if x]
+            if len(parts) < 2 or '..' in parts:
+                continue
+            target = os.path.join(dest, *parts[1:])
+            if m.is_dir():
+                os.makedirs(target, exist_ok=True); continue
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            with z.open(m) as src, open(target, 'wb') as out:
+                shutil.copyfileobj(src, out, 1 << 20)
+            ts = time.mktime(m.date_time + (0, 0, -1))
+            os.utime(target, (ts, ts))
+
+def unzip_game(g, name):
+    """Unzip game g (zip '<name>.zip') into UNZIP_DIR/<g>, and its Spanish pack, if downloaded and
+    eXo has a Spanish config for it, over a second copy in UNZIP_DIR/!spanish/<g>.
+    Kept between runs (marker in UNZIP_DIR/.done). Returns True if the Spanish version is there."""
+    zp = os.path.join(SRC, name + '.zip')
+    if not os.path.isfile(zp) or os.path.getsize(zp) == 0:
+        raise RuntimeError('its zip is not downloaded: %s.zip' % name)
+    es_zip = os.path.join(SRC, '!spanish', name + '.zip')
+    es = (os.path.isfile(es_zip) and os.path.getsize(es_zip) > 0
+          and os.path.isfile(os.path.join(SRC, '!dos', '!spanish', g, 'dosbox.conf')))
+    for dst, overlay in [(os.path.join(UNZIP_DIR, g), None)] + \
+                        ([(os.path.join(UNZIP_DIR, '!spanish', g), es_zip)] if es else []):
+        mark = os.path.join(UNZIP_DIR, '.done', ('es-' if overlay else '') + g)   # outside the game folder
+        if os.path.isfile(mark) and os.path.isdir(dst):
+            continue
+        shutil.rmtree(dst, ignore_errors=True)
+        _unzip(zp, dst)
+        if overlay:
+            _unzip(overlay, dst)
+        os.makedirs(os.path.dirname(mark), exist_ok=True)
+        open(mark, 'w').close()
+    UNZ.add(g)
+    return es
+
+def exo_path(f):
+    """An eXo-relative path from a config (.\\eXoDOS\\<game>\\...) -> the real file, also for unzipped games."""
+    parts = [x for x in f.replace('\\', '/').split('/') if x not in ('', '.')]
+    if len(parts) > 2 and parts[0].lower() == 'exodos':
+        es = parts[1].lower() == '!spanish'
+        g = parts[2 if es else 1]
+        if g in UNZ:
+            rest = parts[3 if es else 2:]
+            return os.path.join(UNZIP_DIR, '!spanish' if es else '', g, *rest)
+    return os.path.normpath(os.path.join(SRC, '..', *parts))
+
 def game_src(g):
     """Folder with the game's files: the Spanish version if downloaded, else English."""
+    if g in UNZ:
+        return os.path.join(UNZIP_DIR, '!spanish', g) if LANG.get(g) == 'es' else os.path.join(UNZIP_DIR, g)
     if G.get(g, {}).get('src') == 'extra':
         if not os.path.isdir(os.path.join(EXTRA, g)):
             raise RuntimeError('its files are not in %s' % os.path.join(EXTRA, g))
@@ -191,6 +265,11 @@ G = {
                        ('CD version, AdLib Gold (needs the CD)', ['D:', 'CD \\', 'DNCDPRG AMR ADG388 SBP2227 EMS 386 SAF WRIC:\\DUNECD\\'])]),
  'enchant': dict(title='Curse of Enchantia (1992)', kind='root', cd=True,
                  opts=snd('ENCHANT', 'CURSE', ['SB16', 'MT32'])),
+ # floppy versions inside eXo's CD-version installs: the disc gets these, they need no CD
+ 'Flashbac':dict(title='Flashback - The Quest for Identity (1993)', kind='drive', subs=['Floppy'], loose='-',
+                 opts=snd('FLOPPY', 'FB', ['SB16', 'MT32'])),            # FB\ + cd\ = the CD version
+ 'RallyCha':dict(title='Rally Championships (1994)', kind='drive', subs=['RALLY'], loose='-',
+                 opts=snd('RALLY', 'RACE', ['SB16', 'MT32', 'SC55'])),   # RACE\ + cd\ = the CD version
  'IntSSoc': dict(title='International Sensible Soccer (1994)', kind='drive', subs=['SOCCER'],
                  floppy=['cd/International Sensible Soccer.ima'],
                  opts=snd('SOCCER', 'SOC_K', ['SB16', 'MT32'])),
@@ -435,7 +514,7 @@ def auto_def(g, warn):
         if m and m.group(3).lower() in ('cdrom', 'iso'):
             d['cd'] = True
         elif m and m.group(3).lower() == 'floppy':
-            d['floppy'] = [os.path.relpath(os.path.join(SRC, '..', f.replace('\\', '/')), src)
+            d['floppy'] = [os.path.relpath(exo_path(f), src)
                            for f in re.findall(r'"([^"]+)"|(\S+)', m.group(2)) for f in f if f]
             d['floppy'] = [f for f in d['floppy'] if os.path.isfile(os.path.join(src, f))]
         m = re.match(r'@?mount\s+a\s+"?([^"]+?)"?\s+-t\s+floppy', l, re.I)
@@ -566,7 +645,7 @@ def stage_game(g, d, dst_games):
     KEEP_PRESETS.clear()
     KEEP_PRESETS.update(m.upper() for _, cmds in d.get('opts', []) for c in cmds
                         for m in re.findall(r'^COPY\s+(\w+)\\\*\.\*', c, re.I))
-    imgs = [os.path.normpath(os.path.join(SRC, '..', f.replace('\\', '/'))) for f in runs_from_floppy(read_autoexec(g))]
+    imgs = [exo_path(f) for f in runs_from_floppy(read_autoexec(g))]
     drop_extra |= {os.path.basename(f).lower() for f in imgs}
     tops, size = [], 0
     if d['kind'] in ('root', 'self'):
@@ -793,7 +872,29 @@ def exodium_info():
                     _INFO[sc.lower()] = dict(name=name, year=year, genre=genre or '', thumb=thumb, title=title or '')
             finally:
                 db.close()
+        if not _INFO and XML_PATH and os.path.isfile(XML_PATH):
+            _INFO = launchbox_info(XML_PATH)
     return _INFO
+
+XML_PATH = None    # LaunchBox's MS-DOS.xml (classic eXoDOS), used when there is no Exodium database
+IMAGES = None      # classic eXoDOS Images/MS-DOS folder (box art)
+
+def launchbox_info(path):
+    """Same dict as from Exodium's database, read from classic eXoDOS's xml/all/MS-DOS.xml.
+    The key is the game's folder (RootFolder eXo\\eXoDOS\\!dos\\<game>)."""
+    import xml.etree.ElementTree as ET
+    out = {}
+    for _, el in ET.iterparse(path):
+        if el.tag != 'Game':
+            continue
+        f = lambda k: (el.findtext(k) or '').strip()
+        root, app = f('RootFolder').replace('\\', '/'), f('ApplicationPath').replace('\\', '/')
+        if '/!dos/' in root.lower() and '/!spanish/' not in root.lower():
+            sc = root.rstrip('/').split('/')[-1]
+            out[sc.lower()] = dict(name=os.path.splitext(app.split('/')[-1])[0], year=f('ReleaseDate')[:4],
+                                   genre=f('Genre'), thumb=None, title=f('Title'), lbid=f('ID'))
+        el.clear()
+    return out
 
 def exodium_genres():
     return {k: v['genre'] for k, v in exodium_info().items()}
@@ -854,11 +955,31 @@ def video_frame(name):
                     best = (sc, im)
             return best and best[1]
 
-def poster(thumb):
-    """Box art fitted into the screenshot box (mode 13h pixels are 1.2x taller than wide)."""
+def lb_boxart(info):
+    """Classic eXoDOS box art: Images/MS-DOS/Box - Front/<Title>-01.jpg, LaunchBox's naming
+    (characters not allowed in file names become _; a repeated title adds .<ID>)."""
+    if not IMAGES or not info.get('title'):
+        return None
+    d = os.path.join(IMAGES, 'Box - Front')
+    if not os.path.isdir(d):
+        return None
+    san = re.sub(r'[:\'/\\?*"<>|]', '_', info['title'])
+    for stem in ([san + '.' + info['lbid']] if info.get('lbid') else []) + [san]:
+        for n in ('01', '00', '02'):
+            for ext in ('jpg', 'png'):
+                p = os.path.join(d, '%s-%s.%s' % (stem, n, ext))
+                if os.path.isfile(p):
+                    return p
+    return None
+
+def poster(thumb, info=None):
+    """Box art fitted into the screenshot box (mode 13h pixels are 1.2x taller than wide):
+    Exodium's posters pack (thumb), else classic eXoDOS's Images folder."""
     from PIL import Image
-    p = os.path.join(POSTERS, '%s.jpg' % thumb)
-    if not thumb or not os.path.isfile(p):
+    p = os.path.join(POSTERS, '%s.jpg' % thumb) if thumb else None
+    if not p or not os.path.isfile(p):
+        p = lb_boxart(info or {})
+    if not p:
         return None
     im = Image.open(p).convert('RGB')
     a = im.width / float(im.height)
@@ -875,9 +996,9 @@ def screenshot(g):
     if os.path.isfile(cached):
         return Image.open(cached).convert('RGB')
     try:
-        im = video_frame(info.get('name')) or poster(info.get('thumb'))
+        im = video_frame(info.get('name')) or poster(info.get('thumb'), info)
     except Exception:
-        im = poster(info.get('thumb'))
+        im = poster(info.get('thumb'), info)
     if im is not None:
         os.makedirs(CACHE, exist_ok=True)
         im.save(cached)
@@ -1003,7 +1124,7 @@ def write_gui(root, label, dk, series, vol, build):
     return ('no picture: ' + ' '.join(nopic)) if nopic else None
 
 def main():
-    global SRC, OUT, EXODIUM_DB, CACHE, POSTERS, GAMEDATA, EXTRA
+    global SRC, OUT, EXODIUM_DB, CACHE, POSTERS, GAMEDATA, EXTRA, UNZIP_DIR, XML_PATH, IMAGES
     import argparse
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('src', help='the eXo/eXoDOS folder with the installed games')
@@ -1020,6 +1141,16 @@ def main():
     ap.add_argument('--first', type=int, default=1, metavar='N',
                     help='number of the first disc (default 1): with --burned, continue after the burned '
                          'discs of this series, e.g. --first 3')
+    ap.add_argument('--games', metavar='FILE',
+                    help='build only these games, one per line: folder name (e.g. KQ2), "Title (Year)" or '
+                         'title. Games not unzipped yet (classic eXoDOS keeps them zipped) are unzipped '
+                         'into --unzip-dir first. Without --games: every game already unzipped (Exodium)')
+    ap.add_argument('--unzip-dir', metavar='DIR',
+                    help='where --games unzips games (default: setup86-unzipped next to OUT). Kept between runs; '
+                         'nothing is ever written into the eXoDOS install')
+    ap.add_argument('--xml', metavar='FILE',
+                    help='LaunchBox MS-DOS.xml for titles, years and genres when there is no Exodium database '
+                         '(default: xml/all/MS-DOS.xml in the eXoDOS install, found by itself)')
     ap.add_argument('--data', metavar='DIR',
                     help='folder with exodium.db, posters/, shots/ and GameData/ (default: setup86-data next to '
                          'src if it exists, else Exodium\'s own locations)')
@@ -1037,9 +1168,20 @@ def main():
         EXODIUM_DB, POSTERS, CACHE, GAMEDATA, EXTRA = (os.path.join(data, n) for n in
                                                        ('exodium.db', 'posters', 'shots', 'GameData', 'extra'))
         print('data: %s' % data)
-    if not os.path.isfile(EXODIUM_DB):
-        print('WARNING: no Exodium database at %s: menu titles, genres and box art will be missing'
-              % EXODIUM_DB, file=sys.stderr)
+    UNZIP_DIR = os.path.abspath(a.unzip_dir) if a.unzip_dir else os.path.join(os.path.dirname(OUT), 'setup86-unzipped')
+    install = os.path.normpath(os.path.join(SRC, '..', '..'))       # the eXoDOS / Exodium install folder
+    XML_PATH = a.xml or next((p for p in (os.path.join(install, 'xml', 'all', 'MS-DOS.xml'),
+                                          os.path.join(install, 'Data', 'Platforms', 'MS-DOS.xml'),
+                                          os.path.join(data, 'MS-DOS.xml')) if os.path.isfile(p)), None)
+    IMAGES = next((p for p in (os.path.join(install, 'Images', 'MS-DOS'), os.path.join(data, 'Images', 'MS-DOS'))
+                   if os.path.isdir(p)), None)
+    if os.path.isfile(EXODIUM_DB):
+        pass
+    elif XML_PATH:
+        print('metadata: %s (no Exodium database)' % XML_PATH)
+    else:
+        print('WARNING: no Exodium database (%s) and no LaunchBox MS-DOS.xml: menu titles, genres and '
+              'box art will be missing' % EXODIUM_DB, file=sys.stderr)
     skip = set()
     for f in a.burned:
         for l in open(f):
@@ -1060,6 +1202,27 @@ def main():
                and os.path.isfile(os.path.join(SRC, '!dos', '!spanish', e.name, 'dosbox.conf'))} \
         if os.path.isdir(es_dir) else set()
     english = {e.name for e in os.scandir(SRC) if e.is_dir() and not e.name.startswith('!')}
+    wanted = None
+    if a.games:                                     # chosen games; unzip the ones still zipped
+        idx, zips = game_index()
+        wanted = set()
+        for line in open(a.games, encoding='utf-8', errors='replace'):
+            q = line.strip()
+            if not q or q.startswith('#'):
+                continue
+            g = idx.get(q.lower()) or idx.get(re.sub(r'\.zip$', '', q, flags=re.I).lower())
+            if not g:
+                warn.append('--games: no game "%s" in %s' % (q, os.path.join(SRC, '!dos'))); continue
+            wanted.add(g)
+            if g in english or g in spanish:
+                continue                            # already unzipped (Exodium, or launched in exogui)
+            try:
+                print('unzipping %s' % zips.get(g, g), flush=True)
+                if unzip_game(g, zips[g]):
+                    spanish.add(g)
+                english.add(g)
+            except Exception as e:
+                warn.append('%s: SKIPPED (%s)' % (g, e))
     es_scummvm = sorted((e.name for e in os.scandir(es_dir) if e.is_dir() and not e.name.startswith('!')
                          and e.name not in spanish and e.name not in english), key=str.lower) \
         if os.path.isdir(es_dir) else []
@@ -1071,6 +1234,8 @@ def main():
     for g in spanish:
         LANG[g] = 'es'
     names = sorted((english | spanish) - set(fan_games), key=str.lower)
+    if wanted is not None:
+        names = [g for g in names if g in wanted]
     if a.genre:
         genres = exodium_genres()
         want_g = a.genre.lower()
