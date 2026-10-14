@@ -33,6 +33,7 @@
 #include <direct.h>
 #include <sys/stat.h>
 
+#define VERSION   "v1.1.0"      /* shown at the right of the top bar; the release tag */
 #define MAXGAMES  400
 #define MAXRUN    12
 #define SHOT_W    192
@@ -66,7 +67,7 @@ typedef struct {
 enum { S_HEADER, S_FOOTER, S_NOPIC, S_SPANISH, S_ENGLISH, S_PRESS, S_WHERE, S_OKCANCEL, S_BADPATH, S_NODRIVE, S_NEEDS, S_NOSPACE, S_NOMKDIR, S_HASFILES, S_OVERWRITE, S_NOMEM, S_COPYING, S_BUFFER, S_FILES, S_ERRREAD, S_ERRCREATE, S_ERRWRITE, S_STOPPED, S_INCOMPLETE, S_INSTALLED, S_INFILES, S_TOPLAY, S_HELP, S_H_MOVE, S_H_PAGE, S_H_ENDS, S_H_JUMP, S_H_INST, S_H_HELP, S_H_LANG, S_H_QUIT, S_H_NOTE,
        S_FOOTER_C, S_H_F2D, S_H_F2C, S_MWHERE, S_MDONE, S_MRUN, S_INSERT, S_READY, S_NEWDISC, S_ADDQ,
        S_NEWBUILD, S_UPDQ, S_NODISC, S_ADDED, S_NOTONDISC, S_MCOPYFAIL, S_DISCLINE, S_TOOMANY,
-       S_H_ABOUT, S_ABOUT, S_A_BY, S_A_MADE1, S_A_MADE2, S_A_FREE, S_A_DONATE, S_COUNT };
+       S_H_ABOUT, S_ABOUT, S_A_BY, S_A_MADE1, S_A_MADE2, S_A_FREE, S_A_DONATE, S_A_VER, S_COUNT };
 static const char *msgs[2][S_COUNT] = {
     { "SETUP86 COLLECTION",
       "ENTER Install F1 Help F2 HD ESC Quit",
@@ -129,7 +130,8 @@ static const char *msgs[2][S_COUNT] = {
       "Made for the eXoDOS collection,",
       "to run on real x86 hardware.",
       "Free & open source - MIT License",
-      "Please donate to support it:" },
+      "Please donate to support it:",
+      "Version %s" },
     { "SETUP86 COLLECTION",
       "ENTER Inst. F1 Ayuda F2 HD ESC Salir",
       "(sin imagen)",
@@ -191,7 +193,8 @@ static const char *msgs[2][S_COUNT] = {
       "Hecho para la colecci\242n eXoDOS,",
       "para usar en PCs x86 reales.",
       "Libre y gratuito - Licencia MIT",
-      "Si quiere apoyar su desarrollo:" } };
+      "Si quiere apoyar su desarrollo:",
+      "Versi\242n %s" } };
 static int lang;                      /* 0 English, 1 Spanish (F10) */
 #define L(id) msgs[lang][id]
 
@@ -308,6 +311,32 @@ static void text(int x, int y, const char far *s, int fg, int bg, int max)
                 if (g[r] & (0x80 >> b)) p[b] = fg;
                 else if (bg >= 0) p[b] = bg;
         }
+    }
+}
+
+/* tiny 3x5 font, only for the version number at the top right ("v1.2.3") */
+static const unsigned char tiny[12][5] = {       /* 0-9, '.', 'v'; 3 bits per row, MSB = left */
+    {7,5,5,5,7}, {2,6,2,2,7}, {7,1,7,4,7}, {7,1,7,1,7}, {5,5,7,1,1},
+    {7,4,7,1,7}, {7,4,7,5,7}, {7,1,1,1,1}, {7,5,7,5,7}, {7,5,7,1,7},
+    {0,0,0,0,2}, {0,5,5,5,2} };
+
+static int tiny_width(const char *s)
+{
+    int w = 0;
+    for (; *s; s++) w += *s == '.' ? 2 : 4;
+    return w - 1;
+}
+
+static void tiny_text(int x, int y, const char *s, int fg)
+{
+    int r, b;
+    for (; *s; s++) {
+        int i = *s == '.' ? 10 : *s == 'v' ? 11 : *s - '0';
+        if (i < 0 || i > 11) { x += 4; continue; }
+        for (r = 0; r < 5; r++)
+            for (b = 0; b < 3; b++)
+                if (tiny[i][r] & (4 >> b)) vga[(unsigned)(y + r) * 320 + x + b - (i == 10)] = fg;
+        x += i == 10 ? 2 : 4;
     }
 }
 
@@ -596,6 +625,7 @@ static void draw_frame(void)
         strupr(h);
         text_c(1, h, C_BARTEXT);
     }
+    tiny_text(318 - tiny_width(VERSION), 3, VERSION, C_DIM);
     fill(0, 190, 320, 10, C_BAR);
     text_c(191, L(coll ? S_FOOTER_C : S_FOOTER), C_BARTEXT);
 }
@@ -641,15 +671,18 @@ static void help(void)
 
 static void about(void)
 {
+    char ver[24];
     fill(0, 10, 320, 180, C_BG);
     dialog(4, 14, 312, 172);
+    sprintf(ver, L(S_A_VER), VERSION + 1);        /* "1.1.0" without the v */
     text_c(22, L(S_ABOUT), C_TITLE);
-    text_c(42, L(S_A_BY), C_TEXT);
-    text_c(52, "(c) 2026 ariel.juszczyk@gmail.com", C_DIM);
-    text_c(72, L(S_A_MADE1), C_TEXT);
-    text_c(81, L(S_A_MADE2), C_TEXT);
-    text_c(101, L(S_A_FREE), C_TEXT);
-    text_c(111, "github.com/arieljuszczyk/setup86", C_FIELDTX);
+    text_c(33, ver, C_DIM);
+    text_c(48, L(S_A_BY), C_TEXT);
+    text_c(58, "(c) 2026 ariel.juszczyk@gmail.com", C_DIM);
+    text_c(76, L(S_A_MADE1), C_TEXT);
+    text_c(85, L(S_A_MADE2), C_TEXT);
+    text_c(103, L(S_A_FREE), C_TEXT);
+    text_c(113, "github.com/arieljuszczyk/setup86", C_FIELDTX);
     text_c(131, L(S_A_DONATE), C_TEXT);
     text_c(141, "ko-fi.com/setup86", C_FIELDTX);
     text_c(172, L(S_PRESS), C_DIM);
