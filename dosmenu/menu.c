@@ -27,6 +27,7 @@
 #include <dos.h>
 #include <i86.h>
 #include <conio.h>
+#include <bios.h>
 #include <io.h>
 #include <fcntl.h>
 #include <direct.h>
@@ -374,12 +375,11 @@ static int getkey(void)
     }
 }
 
+/* a key is waiting (int 16h 01h/11h set ZF when there is none; REGS has no ZF, only cflag) */
 static int key_waiting(void)
 {
-    union REGS r;
     if (keyfile) return 0;
-    r.h.ah = enhanced_kbd() ? 0x11 : 1; int86(0x16, &r, &r);
-    return !(r.x.cflag & INTR_ZF);
+    return _bios_keybrd(enhanced_kbd() ? _NKEYBRD_READY : _KEYBRD_READY) != 0;
 }
 
 /* ---------- data ---------- */
@@ -748,20 +748,23 @@ static void progress(const char *name)
 /* Copy buffer: as much DOS memory as is free (up to 512 KB), in 32 KB chunks.
  * The file is read with back-to-back reads until the buffer is full, then
  * written out: a CD drive streams instead of stopping and seeking again
- * after every small read (what made the first version slow on real hardware). */
+ * after every small read (what made the first version slow on real hardware).
+ * The chunks start on a 32 KB boundary, so no read crosses a 64 KB DMA page:
+ * CD-ROM drivers that use DMA can't transfer across one, and retry forever. */
 #define CHUNK      0x8000u              /* bytes per DOS read/write call */
 #define CHUNK_PARA 0x0800u              /* the same in 16-byte paragraphs */
-static unsigned bufseg, nchunks;
+static unsigned rawseg, bufseg, nchunks;
 
 static int alloc_copybuf(void)
 {
     unsigned maxp, want;
     if (_dos_allocmem(0xFFFF, &maxp) == 0) { _dos_freemem(maxp); return 0; }   /* can't happen */
     want = maxp > 0x0400 ? maxp - 0x0400 : 0;      /* leave 16 KB free for DOS */
-    if (want > 0x8000) want = 0x8000;               /* 512 KB is plenty */
-    want -= want % CHUNK_PARA;
-    if (want < CHUNK_PARA || _dos_allocmem(want, &bufseg)) return 0;
-    nchunks = want / CHUNK_PARA;
+    if (want > 0x8000 + CHUNK_PARA) want = 0x8000 + CHUNK_PARA;   /* 512 KB + room to align */
+    if (want < 2 * CHUNK_PARA || _dos_allocmem(want, &rawseg)) return 0;
+    bufseg = (rawseg + CHUNK_PARA - 1) & ~(CHUNK_PARA - 1);
+    nchunks = (unsigned)(((unsigned long)rawseg + want - bufseg) / CHUNK_PARA);
+    if (!nchunks) { _dos_freemem(rawseg); return 0; }
     return 1;
 }
 
@@ -1111,7 +1114,7 @@ static void install(Game far *g)
     text(206, 118, buf, C_DIM, -1, 11);
     done_bytes = 0; nfiles = 0; copy_err = 0;
     copy_tree(src, path);
-    _dos_freemem(bufseg);
+    _dos_freemem(rawseg);
     if (copy_err) {
         static const int why[] = { 0, S_ERRREAD, S_ERRCREATE, S_ERRWRITE, S_STOPPED };
         message(L(why[copy_err]), L(S_INCOMPLETE), C_ERR);
@@ -1183,8 +1186,14 @@ int main(int argc, char **argv)
         printf("MENU: cannot read %s_MENU\\%s\n", base, coll ? "VOLS.DAT" : "MENU.DAT");
         return 1;
     }
-    shotbuf = malloc(720 + SHOT_W * SHOT_H);
-    if (!shotbuf) { printf("MENU: not enough memory\n"); return 1; }
+    {   /* the screenshot buffer is read from the CD too: keep it inside one 64 KB DMA page */
+        unsigned char far *b = malloc(2 * (720 + SHOT_W * SHOT_H));
+        unsigned long lin;
+        if (!b) { printf("MENU: not enough memory\n"); return 1; }
+        lin = (unsigned long)FP_SEG(b) * 16 + FP_OFF(b);
+        if ((lin & 0xFFFFUL) + 720 + SHOT_W * SHOT_H > 0x10000UL) lin = (lin | 0xFFFFUL) + 1;
+        shotbuf = MK_FP((unsigned)(lin >> 4), (unsigned)(lin & 15));
+    }
 
     vga = MK_FP(0xA000, 0);
     set_mode(0x13);
