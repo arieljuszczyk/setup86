@@ -9,7 +9,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/runs%20on-MS--DOS%203.3%2B%20%C2%B7%20VGA-blue" alt="Runs on MS-DOS 3.3+ with VGA" />
-  <img src="https://img.shields.io/badge/builds%20on-Linux-lightgrey" alt="Builds on Linux" />
+  <img src="https://img.shields.io/badge/builds%20on-Windows%20%C2%B7%20Linux-lightgrey" alt="Builds on Windows and Linux" />
   <img src="https://img.shields.io/badge/language-C%20%2B%20Python-orange" alt="C + Python" />
   <a href="https://ko-fi.com/setup86"><img src="https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white" alt="Support on Ko-fi" /></a>
 </p>
@@ -17,8 +17,6 @@
 <p align="center">
   <img src="docs/screenshots/menu.png" width="820" alt="The Setup86 menu on a DOS PC: the game list on the left, a DOOM screenshot with its year, genre, language and size on the right" />
 </p>
-
----
 
 ## Quick start
 
@@ -37,75 +35,60 @@
 Prefer the command line? `setup86.py` builds every installed game into as many discs as it takes:
 see [Build and burn](#build-and-burn).
 
----
+## What's on a Setup86 disc
 
-## A tribute to eXoDOS
+eXoDOS games are set up for DOSBox: each one comes with launchers, DOSBox settings, emulator helpers
+and several copies of its sound setup. A Setup86 disc keeps only what a real DOS PC needs:
 
-Setup86 would not exist without the [eXoDOS project](https://www.retro-exo.com/exodos.html) and its
-creator, **eXo**, who spent years collecting, configuring and preserving thousands of DOS games, and
-without [Exodium](https://github.com/tvollstaedt/exodium), which makes them easy to browse and
-download on Linux. Setup86 only takes the games you already have and brings them back to the kind
-of machine they were made for. If you enjoy it, please support the eXoDOS project at
-[retro-exo.com](https://www.retro-exo.com).
+| On the CD | What it is |
+|---|---|
+| `\DOOM\`, `\KQ6CD\`, ... | each game's own DOS files, with 8.3 names, ready to copy to `C:` |
+| `MENU.EXE` | the VGA menu: a screenshot, year, genre, language and size for each game. **Enter** installs a game after checking the free space and tells you how to start it. **F10** switches between English and Spanish |
+| `INSTALL.EXE` | puts the menu on the hard disk (`C:\SETUP86`), where every disc you add shows up in one list and the menu asks for the right volume |
+| `TXTMENU.BAT` | a text-mode menu for PCs without VGA |
+| `SETUP86.ID` | tells the hard-disk menu which volume the disc is |
 
----
+It runs on anything from an 8086 with VGA to a Pentium, with DOS 3.3 or later.
 
-## What it does
+## Making discs
 
-eXoDOS games are set up to run in DOSBox: each one comes with launchers, DOSBox configs, emulator
-helpers and several copies of its sound setup. Setup86 keeps only the real DOS files, gives them
-proper 8.3 names, and packs them onto CD-sized discs that a real DOS PC can read.
+- **The Disc Builder app** (Windows and Linux): choose the games for each disc yourself.
+- **The command line** (`setup86.py`): every installed game in as many discs as it takes, genre
+  collections, and new discs that continue a series you already burned.
+- **Spanish versions** go on the disc instead of the English ones when you've downloaded them in Exodium.
+- **Next up:** classic eXoDOS installs (LaunchBox / exogui, games still zipped), not only Exodium.
 
-### Available now
-- ✅ **Setup86 Disc Builder**, an app for Windows and Linux: pick the games for each disc, like an old CD burner app
-- ✅ One CD (ISO) per 720 MB of games, with every game in its own folder
-- ✅ **`MENU.EXE`** on every disc: a VGA menu with a screenshot, title, year, genre, language and size for each game
-- ✅ Installs a game to your hard disk with one key, checks the free space first, and shows how to start it
-- ✅ English and Spanish (**F10**), including Spanish versions of the games when you've downloaded them in Exodium
-- ✅ The whole collection in one menu: install it to the hard disk (**F2**) and it asks for the right disc when you install a game
-- ✅ A text-mode menu (`TXTMENU`) for PCs without VGA
-- ✅ Genre collections (`--genre adventure`) and new discs that continue a series you already burned
-- ✅ Runs on anything from an 8086 with VGA to a Pentium, DOS 3.3 or later
+## Good to know
 
-### Planned
-- 🔲 Classic eXoDOS installs (LaunchBox/exogui, games still zipped), not only Exodium
-
-> **Compatibility note:** games that really need their CD (The 7th Guest, Rayman, Tomb Raider, …)
-> are left out of the discs: burn each of those from its CD image. Games eXo starts with a CD that
-> run without it (Quake, Blood, Descent, …) are included; when their music is CD audio, it plays
-> only with the original CD in the drive. Games keep the sound setup eXo last used, so
-> for your real sound card, run the game's own SETUP or INSTALL program once. Games without a
-> hand-checked entry are converted automatically and listed when you build; test those on the PC.
-
----
+- **Games that need their own CD** (The 7th Guest, Rayman, Tomb Raider, ...) stay off the discs:
+  burn each of those from its own CD image.
+- **Some CD games don't need the CD.** eXo starts games like Quake, Blood and Descent with their CD
+  mounted, but they run from the hard disk. Setup86 tested those and puts them on the discs. If their
+  music is CD audio, it plays only with the original CD in the drive, and the menu says so.
+- **Sound:** each game keeps the sound settings eXo last used. Run the game's own SETUP or INSTALL
+  once for your real sound card.
+- **Converted automatically:** games without a hand-checked entry are converted from eXo's settings
+  and listed when you build. Try those on the PC.
+- **Manual questions:** some games ask a word from their printed manual (IndyCar Racing, WarCraft).
+  Put the codes on the disc with the extra-files folder (see [Technical details](#technical-details)).
 
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/install.png" width="820" alt="Install dialog for Raptor: Call of the Shadows, asking for the directory C:\GAMES\RAPTOR" />
+  <img src="docs/screenshots/disc-builder.png" width="820" alt="Setup86 Disc Builder: the installed eXoDOS games on the left, the disc being filled on the right with a capacity bar of 284 of 720 MB" />
+  <br><sub>The Disc Builder app: your eXoDOS games on the left, the disc on the right.</sub>
 </p>
 
-<p align="center"><em>Press Enter on a game, confirm the directory, and it is copied to your hard disk.</em></p>
-
-<p align="center">
-  <img src="docs/screenshots/install-es.png" width="820" alt="The same dialog in Spanish for Rally Championships, with the directory C:\JUEGOS\RALLYCHA" />
-</p>
-
-<p align="center"><em>Every screen is also in Spanish: press F10.</em></p>
-
-<p align="center">
-  <img src="docs/screenshots/help.png" width="820" alt="Help screen listing the keys: arrows, PgUp PgDn, Home End, A-Z, ENTER, F1, F2, F10, F12 and ESC" />
-</p>
-
-<p align="center"><em>F1 shows every key.</em></p>
-
-<p align="center">
-  <img src="docs/screenshots/about.png" width="820" alt="About screen with the credits, the GitHub page, the MIT License and the Ko-fi link" />
-</p>
-
-<p align="center"><em>F12 shows the About screen.</em></p>
-
----
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/install.png" alt="Install dialog for Raptor: Call of the Shadows, asking for the directory C:\GAMES\RAPTOR" /><br><sub><b>Enter</b>: pick a folder and the game is copied to your hard disk.</sub></td>
+    <td width="50%"><img src="docs/screenshots/install-es.png" alt="The same dialog in Spanish for Rally Championships, with the directory C:\JUEGOS\RALLYCHA" /><br><sub><b>F10</b>: every screen in Spanish too.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/help.png" alt="Help screen listing the keys: arrows, PgUp PgDn, Home End, A-Z, ENTER, F1, F2, F10, F12 and ESC" /><br><sub><b>F1</b>: the keys.</sub></td>
+    <td width="50%"><img src="docs/screenshots/about.png" alt="About screen with the credits, the GitHub page, the MIT License and the Ko-fi link" /><br><sub><b>F12</b>: About.</sub></td>
+  </tr>
+</table>
 
 ## Installation
 
@@ -185,8 +168,6 @@ build. Those games are skipped, and the new discs continue the numbering:
 
 For a genre collection: `--genre adventure --series Adventure`, into its own output folder.
 
----
-
 ## How it's made
 
 The menu that runs on the DOS PC, `MENU.EXE`, is written in **C for 16-bit DOS** and built with
@@ -196,8 +177,6 @@ by the text menu is 8086 assembly. The disc builder, `setup86.py`, is Python.
 
 Setup86 was developed with the help of [Claude Code](https://claude.com/claude-code), Anthropic's
 AI coding assistant.
-
----
 
 ## Technical details
 
@@ -358,7 +337,12 @@ hardlinks, so they take real space.
 
 </details>
 
----
+## Credits
+
+The games come from [eXoDOS](https://www.retro-exo.com/exodos.html), the DOS collection eXo has built
+and maintained for years, and Setup86 reads them as [Exodium](https://github.com/tvollstaedt/exodium)
+downloads them. Setup86 doesn't include or download any games. If you like what it does, support the
+eXoDOS project at [retro-exo.com](https://www.retro-exo.com).
 
 ## Disclaimer
 
