@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="art/setup86-icon-256.png" width="128" alt="Setup86" />
+  <img src="art/setup86-social-1280x640.gif" width="820" alt="Setup86: disc builder, installer and menu for real x86 PCs" />
 </p>
 
 <h1 align="center">Setup86</h1>
