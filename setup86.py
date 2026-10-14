@@ -13,7 +13,8 @@ when SRC is on another filesystem, e.g. an SMB share):
   SETUP86-<SERIES>-nn.ISO  ISO9660 image of DISCn (only discs chosen with --iso), e.g. SETUP86-VOLUME-01.ISO
 If a game's Spanish version is downloaded (!spanish/<game>), it is used instead of English.
 Games are packed alphabetically: disc 1 from A until the next game doesn't fit.
-Games that need their own CD (eXo mounts a CD image) are left out entirely.
+Games that need their own CD (eXo mounts a CD image) are left out, except the ones in
+NO_CD_NEEDED, which were tested to run without it.
 Games listed in G have hand-checked notes; any other game folder is converted
 automatically from its eXo dosbox.conf/run.bat (listed under WARNINGS).
 After burning a disc, pass its list with --burned DISC1.TXT on later runs so
@@ -34,6 +35,10 @@ def place(src, dst):
 # games whose eXo version needs its CD but a hard-disk version was found elsewhere:
 # their files come from EXTRA/<G> instead of the eXo install (G entry with src='extra')
 EXTRA = os.path.expanduser('~/eXoDOS/.setup86-extra')   # default; <data>/extra with a setup86-data folder
+
+# files to add to a game's folder on the disc, e.g. the copy-protection codes from its manual:
+# ADD/<game>/<file>, placed next to the game's own files (8.3 names)
+ADD = os.path.expanduser('~/eXoDOS/.setup86-add')   # default; <data>/add with a setup86-data folder
 
 # classic eXoDOS keeps games zipped: --games unzips the chosen ones here (see unzip_game)
 UNZIP_DIR = None
@@ -245,7 +250,7 @@ G = {
  'Dlair2':  dict(title="Dragon's Lair II - Time Warp (1990)", kind='self',
                  opts=[('Play (press 0 on the numpad to start, numpad to play)', ['CD \\DLAIR2', 'TIMEWARP'])]),
  'Dlair89': dict(title="Dragon's Lair (1989)", kind='self', opts=[('Play', ['CD \\DLAIR89', 'GAME'])]),
- 'Dlair93': dict(title="Dragon's Lair (1993)", kind='self', cd=True,   # the CD-ROM version (627 MB of video): burned as its own CD
+ 'Dlair93': dict(title="Dragon's Lair (1993)", kind='self', solo=True,  # the CD-ROM version (627 MB of video): a disc of its own
                  opts=[('Play', ['CD \\DLAIR93', 'DL'])]),
  'DOOM':    dict(title='DOOM (1993)', kind='self',
                  opts=preset_menu(['DOOM'], [('Play DOOM', ['CD \\DOOM', 'DOOM'])], ['SB16', 'GUS', 'SC55'],
@@ -343,6 +348,19 @@ G = {
                        for l, p in [('with Sound Blaster', 'SB16'), ('with Roland MT-32', 'MT32'), ('with General MIDI', 'SC55')]]),
 }
 
+# Games eXo starts with their CD mounted that run without it: tested in DOSBox with another
+# disc in the drive, the game started and played. Their CD only holds the installer, extras,
+# other languages or CD-audio music, so they go on the data discs.
+# 'music': the CD's audio tracks are the game's music, which then needs the original CD.
+NO_CD_NEEDED = {
+    'cannfod2': '', 'descent': '', 'dune2': '', 'heretic': '', 'heretics': '',
+    'hocuspoc': '', 'indycarr': '', 'nascar': '', 'nascar2': '', 'striker9': '',
+    'strikr96': '', 'termvel': '', 'wackywhe': '', 'warcraft': '', 'witchave': '', 'xcomuf': '',
+    'kq7': '', 'mk': '', 'rottdw': '',
+    'blood': 'music', 'heimdal2': 'music', 'hexenbey': 'music', 'lemm3d': 'music', 'lemmings': 'music',
+    'quake': 'music', 'shadcast': 'music', 'syndwars': 'music',
+}
+
 # eXo/DOSBox-only files dropped everywhere (case-insensitive)
 DROP_NAMES = {'run.bat', 'network.bat', 'askecho.com', 'setip.bat',
     # helpers eXo adds for DOSBox / Windows, not part of the original games
@@ -356,6 +374,7 @@ DROP_NAMES = {'run.bat', 'network.bat', 'askecho.com', 'setip.bat',
 # Original releases only. Fan-made games are left out; for fan translations
 # (eXo's Spanish pack) the English original is used instead.
 FAN_GAMES = {'ckeen7', 'ckeen8', 'ckeen9'}                       # Keen 7-9: 2006-2011 fan games
+PORTS = {'q2dos'}                                                  # Quake II DOS port (2024): not a DOS release
 # --genre picks also these games, whose genre says Action too (e.g. "Action; Adventure")
 GENRE_EXTRA = {'adventure': {'adark1', 'adark2'}}
 FAN_TRANSLATIONS = {'kq1', 'lsl1', 'lsl2', 'lsl3', 'sq3', 'sq5',   # Spanish = fan translation
@@ -427,7 +446,7 @@ def short83(n, taken):
             return full
     raise RuntimeError(n)
 
-renamed, dropped_junk, extracted, long_dirs = [], [], [], []
+renamed, dropped_junk, extracted, long_dirs, added = [], [], [], [], []
 DOS_SYSTEM = {'io.sys', 'msdos.sys', 'ibmbio.com', 'ibmdos.com', 'command.com', 'drvspace.bin', 'dblspace.bin'}
 
 def link_tree(src, dst, rel, drop_extra, skip_dirs=frozenset(), names=DROP_NAMES, top=True):
@@ -685,11 +704,26 @@ def stage_game(g, d, dst_games):
                 os.remove(os.path.join(tgt, f)); n -= 1
         size += sum(os.path.getsize(os.path.join(dp, f)) for dp, _, fs in os.walk(tgt) for f in fs) - before
         extracted.append('%s: %d files from %s' % (g, n, os.path.basename(img)))
+    adddir = os.path.join(ADD, g)
+    if os.path.isdir(adddir):                    # our own additions (e.g. protection codes)
+        tgt = os.path.join(gdst, tops[0] if tops else GU)
+        os.makedirs(tgt, exist_ok=True)
+        for e in sorted(os.scandir(adddir), key=lambda e: e.name):
+            if e.is_file():
+                dn = dosname(e.name) or short83(e.name, set(os.listdir(tgt)))
+                place(e.path, os.path.join(tgt, dn))
+                size += e.stat().st_size
+                added.append('%s: %s' % (g, dn))
     fix_bats(gdst)
     return dict(g=g, GU=GU, d=d, tops=tops, size=size)
 
+CD_MUSIC_NOTE = 'Music: CD audio, it plays only with the original CD in the drive'
+
 def howto(g, d):
     """Human-readable 'how to run' lines (not put on the disc)."""
+    return _howto(g, d) + ([CD_MUSIC_NOTE] if d.get('cdmusic') else [])
+
+def _howto(g, d):
     if not d.get('auto'):
         out, seen = [], set()
         for lab, cmds in d['opts']:
@@ -1124,7 +1158,7 @@ def write_gui(root, label, dk, series, vol, build):
     return ('no picture: ' + ' '.join(nopic)) if nopic else None
 
 def main():
-    global SRC, OUT, EXODIUM_DB, CACHE, POSTERS, GAMEDATA, EXTRA, UNZIP_DIR, XML_PATH, IMAGES
+    global SRC, OUT, EXODIUM_DB, CACHE, POSTERS, GAMEDATA, EXTRA, ADD, UNZIP_DIR, XML_PATH, IMAGES
     import argparse
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('src', help='the eXo/eXoDOS folder with the installed games')
@@ -1165,8 +1199,8 @@ def main():
     if a.data or os.path.isdir(data):
         if not os.path.isdir(data):
             sys.exit('no such --data folder: %s' % data)
-        EXODIUM_DB, POSTERS, CACHE, GAMEDATA, EXTRA = (os.path.join(data, n) for n in
-                                                       ('exodium.db', 'posters', 'shots', 'GameData', 'extra'))
+        EXODIUM_DB, POSTERS, CACHE, GAMEDATA, EXTRA, ADD = (os.path.join(data, n) for n in
+                                                       ('exodium.db', 'posters', 'shots', 'GameData', 'extra', 'add'))
         print('data: %s' % data)
     UNZIP_DIR = os.path.abspath(a.unzip_dir) if a.unzip_dir else os.path.join(os.path.dirname(OUT), 'setup86-unzipped')
     install = os.path.normpath(os.path.join(SRC, '..', '..'))       # the eXoDOS / Exodium install folder
@@ -1194,7 +1228,7 @@ def main():
     os.makedirs(OUT)
     open(os.path.join(OUT, '.setup86'), 'w').close()
     stage = os.path.join(OUT, '_stage')
-    warn, games, cdgames = [], [], []
+    warn, games, cdgames, nocd = [], [], [], []
     # Spanish first: a game whose Spanish version is downloaded (!spanish/<game> +
     # !dos/!spanish/<game>/dosbox.conf) is taken in Spanish, otherwise English.
     es_dir = os.path.join(SRC, '!spanish')
@@ -1231,9 +1265,10 @@ def main():
     spanish -= set(fan_tr)
     en_missing = [g for g in fan_tr if g not in english]     # English original not downloaded yet
     fan_games = sorted((g for g in english | spanish if g.lower() in FAN_GAMES), key=str.lower)
+    ports = sorted((g for g in english | spanish if g.lower() in PORTS), key=str.lower)
     for g in spanish:
         LANG[g] = 'es'
-    names = sorted((english | spanish) - set(fan_games), key=str.lower)
+    names = sorted((english | spanish) - set(fan_games) - set(ports), key=str.lower)
     if wanted is not None:
         names = [g for g in names if g in wanted]
     if a.genre:
@@ -1256,8 +1291,11 @@ def main():
             d = d or auto_def(g, warn)
             if LANG.get(g) == 'es':
                 d = dict(d, title=d['title'] + ' [ESPANOL]')
-            if d.get('cd') is True:          # needs its own CD: user burns those separately
+            if d.get('cd') is True and g.lower() not in NO_CD_NEEDED:   # needs its own CD: burned separately
                 cdgames.append(g); continue
+            if d.get('cd') is True:
+                d = dict(d, cd=False, cdmusic=NO_CD_NEEDED[g.lower()] == 'music')
+                nocd.append(g)
             games.append(stage_game(g, d, stage))
             if d.get('auto'):
                 warn.append('%s: auto-converted, test it on the DOS PC' % g)
@@ -1267,7 +1305,7 @@ def main():
     # alphabetical: fill disc 1 from A until the next game doesn't fit, then disc 2...
     # (a game that doesn't fit waits, and the following games are tried first)
     discs, cur, size, waiting = [], [], 0, []
-    queue = list(games)
+    queue = [gm for gm in games if not gm['d'].get('solo')]
     while queue or waiting:
         if not queue:
             discs.append(cur); cur, size, queue, waiting = [], 0, waiting, []
@@ -1282,6 +1320,7 @@ def main():
         cur.append(gm); size += gm['size']
     if cur:
         discs.append(cur)
+    discs += [[gm] for gm in games if gm['d'].get('solo')]   # each on a disc of its own, after the others
     want = (set(range(a.first, a.first + len(discs))) if a.iso == 'all' else set() if a.iso == 'none'
             else {int(x) for x in a.iso.split(',')})
     build = time.strftime('%Y%m%d%H%M')               # tells an installed menu that a disc was rebuilt
@@ -1312,6 +1351,8 @@ def main():
     for n, dk in enumerate(discs, a.first):
         print('DISC%d: %.0f MB, %s .. %s (%d games)%s' % (n, sum(g['size'] for g in dk) / 1e6, dk[0]['GU'],
               dk[-1]['GU'], len(dk), '  -> ' + iso_name(n) if n in want else ''))
+    print('\nOn the data discs although eXo mounts their CD, they run without it (%d): %s'
+          % (len(nocd), ' '.join(nocd)))
     print('\nLeft out, need their own CD (%d): %s' % (len(cdgames), ' '.join(cdgames)))
     es_used = sorted(set(spanish) & set(names), key=str.lower)
     print('\nIn Spanish (%d): %s' % (len(es_used), ' '.join(es_used)))
@@ -1327,11 +1368,15 @@ def main():
               % (len(en_missing), ' '.join(en_missing)))
     if fan_games:
         print('\nFan-made games, left out (%d): %s' % (len(fan_games), ' '.join(fan_games)))
+    if ports:
+        print('\nModern ports, not original DOS releases, left out (%d): %s' % (len(ports), ' '.join(ports)))
     if es_scummvm:
         print('\nSpanish version runs only in ScummVM (no DOS version), English not downloaded, left out (%d): %s'
               % (len(es_scummvm), ' '.join(es_scummvm)))
     if long_dirs:
         print('\nFolders left out, name is not 8.3 (eXo/ScummVM extras):'); print('\n'.join('  ' + x for x in long_dirs))
+    if added:
+        print('\nAdded from %s:' % ADD); print('\n'.join('  ' + x for x in added))
     if extracted:
         print('\nRan from a floppy image, files extracted:'); print('\n'.join('  ' + x for x in extracted))
     if renamed:

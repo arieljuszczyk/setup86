@@ -6,7 +6,7 @@
 #   ./dosbox-test.sh ~/eXoDOS/SETUP86-ADVENTURE/SETUP86-ADVENTURE-01.ISO
 # Installed games stay in the C-folder (default ~/eXoDOS/dosbox-c) between runs.
 # Needs dosbox-staging (Exodium installs it).
-ISO=${1:-$HOME/eXoDOS/SETUP86-VOLUME/SETUP86-VOLUME-01.ISO}
+ISO=${1:-$(dirname "$0")/isos/SETUP86-VOLUME-01.ISO}
 C=${2:-$HOME/eXoDOS/dosbox-c}
 [ -f "$ISO" ] || { echo "no such ISO: $ISO"; exit 1; }
 mkdir -p "$C"

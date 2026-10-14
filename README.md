@@ -30,10 +30,10 @@
    ```
 3. **Build the discs**:
    ```sh
-   ~/.venvs/setup86/bin/python setup86.py ~/eXoDOS/eXo/eXoDOS ~/eXoDOS/SETUP86-VOLUME
+   ~/.venvs/setup86/bin/python setup86.py ~/eXoDOS/eXo/eXoDOS isos --iso all
    ```
-4. **Try it in DOSBox** before burning: `./dosbox-test.sh ~/eXoDOS/SETUP86-VOLUME/SETUP86-VOLUME-01.ISO`
-5. **Burn** `SETUP86-VOLUME-01.ISO` to a CD-R.
+4. **Try it in DOSBox** before burning: `./dosbox-test.sh` (disc 1; or `./dosbox-test.sh isos/SETUP86-VOLUME-02.ISO`)
+5. **Burn** the ISOs in `isos/` to CD-Rs.
 6. **On the DOS PC**, put the CD in and run `D:\MENU`. Pick a game, press Enter, and play.
 
 ---
@@ -68,8 +68,10 @@ proper 8.3 names, and packs them onto CD-sized discs that a real DOS PC can read
 ### Planned
 - 🔲 Classic eXoDOS installs (LaunchBox/exogui, games still zipped), not only Exodium
 
-> **Compatibility note:** games that need their own CD (Quake, Blood, Tomb Raider, …) are left out
-> of the discs: burn each of those from its CD image. Games keep the sound setup eXo last used, so
+> **Compatibility note:** games that really need their CD (The 7th Guest, Rayman, Tomb Raider, …)
+> are left out of the discs: burn each of those from its CD image. Games eXo starts with a CD that
+> run without it (Quake, Blood, Descent, …) are included; when their music is CD audio, it plays
+> only with the original CD in the drive. Games keep the sound setup eXo last used, so
 > for your real sound card, run the game's own SETUP or INSTALL program once. Games without a
 > hand-checked entry are converted automatically and listed when you build; test those on the PC.
 
@@ -130,14 +132,14 @@ python3 -m venv ~/.venvs/setup86
 ### Build and burn
 
 ```sh
-~/.venvs/setup86/bin/python setup86.py ~/eXoDOS/eXo/eXoDOS ~/eXoDOS/SETUP86-VOLUME
+~/.venvs/setup86/bin/python setup86.py ~/eXoDOS/eXo/eXoDOS isos --iso all
 ```
 
-The output folder has `SETUP86-VOLUME-01.ISO`, a `DISCn/` folder per disc, and a `DISCn.TXT` that
-lists where each game goes and how to start it. Only disc 1 gets an ISO by default: use
-`--iso all` for every disc.
+The output folder (`isos/` here, which git ignores) has one `SETUP86-VOLUME-nn.ISO` per disc, a
+`DISCn/` folder per disc, and a `DISCn.TXT` that lists where each game goes and how to start it.
+Without `--iso all`, only disc 1 gets an ISO.
 
-Try the ISO in DOSBox first with `./dosbox-test.sh <ISO>`. It mounts the ISO as `D:` and a folder
+Try the ISO in DOSBox first with `./dosbox-test.sh [ISO]` (disc 1 by default). It mounts the ISO as `D:` and a folder
 as `C:`, then starts the menu. Then burn it with any CD burning app (K3b, Brasero, …). A low speed
 (8-16x) is easier on old CD-ROM drives.
 
@@ -160,7 +162,7 @@ Keep the `DISCn.TXT` of each disc you burn, outside the output folder, and pass 
 build. Those games are skipped, and the new discs continue the numbering:
 
 ```sh
-~/.venvs/setup86/bin/python setup86.py ~/eXoDOS/eXo/eXoDOS ~/eXoDOS/SETUP86-VOLUME \
+~/.venvs/setup86/bin/python setup86.py ~/eXoDOS/eXo/eXoDOS isos --iso all \
     --burned ~/eXoDOS/burned/DISC1.TXT --first 2
 ```
 
@@ -198,9 +200,18 @@ FAKEHMA, BMOUSE, glide/3dfx emulation DLLs, `.ips`, `.bak`, `.pdf`, `.chm`, Duke
   waits, and the following (smaller) games still go on the current disc.
 - **Left out**: any game where eXo mounts a CD (`imgmount`/`mount ... -t cdrom` in its config, or a
   CD from the game's own `cd\` folder in its `run.bat` menu). Each of those gets burned onto its own
-  CD and installed from it. Exception: a Spanish pack that also ships a floppy version (Dark Seed,
-  Dune, Gobliiins 1-3, Loom, Space Quest IV) goes on the data disc as that floppy version, via a
-  hand entry.
+  CD and installed from it. Exceptions:
+  - **Games that run without their CD** (`NO_CD_NEEDED`): checked in DOSBox with another disc in
+    the drive, they started and played (Quake, Blood, Descent, Heretic, Hexen, King's Quest VII...).
+    Their CD only holds the installer, extras, other languages or CD-audio music; for the ones whose
+    music is CD audio, the run notes say it needs the original CD.
+  - **Spanish packs that also ship a floppy version** (Dark Seed, Dune, Gobliiins 1-3, Loom, Space
+    Quest IV) go on the data disc as that floppy version, via a hand entry.
+- **A disc of its own** (`solo=True` in a game's entry): Dragon's Lair (1993), 627 MB of video, gets
+  the last disc to itself instead of filling most of a shared one.
+- **Added files**: files in `~/eXoDOS/.setup86-add/<game>/` (or `add/` in the `--data` folder) go into
+  that game's folder on the disc, e.g. `IndyCarR/CODES.PDF` with the manual's copy-protection codes.
+  Non-8.3 names are shortened.
 - **Spanish first**: if a game's Spanish version is downloaded (`eXoDOS/!spanish/<game>` +
   `!dos/!spanish/<game>/dosbox.conf`), it's used instead of English (`[ESPANOL]` in `DISCn.TXT`).
   The `!spanish/*.zip` files are 0-byte Exodium placeholders. The run's output lists games with a
@@ -214,6 +225,7 @@ FAKEHMA, BMOUSE, glide/3dfx emulation DLLs, `.ips`, `.bak`, `.pdf`, `.chm`, Duke
   - **Original releases only**: fan-made content is left out.
     - **Fan add-ons**: the Monkey Island 1/2 Spanish fan talkies, the LSL3 mouse mod (`LS3pp`) and the Plutonia MIDI pack (`plutmid`). The official Indy 4 CD talkie stays.
     - **Fan games** (`FAN_GAMES`): Commander Keen 7-9.
+    - **Modern ports** (`PORTS`): the 2024 Quake II DOS port. Original DOS releases only.
     - **Fan translations** (`FAN_TRANSLATIONS`): KQ1, LSL1-3, SQ3, SQ5 (with a fan voice dub) and X-COM use the English original instead. If English isn't downloaded, the game is left out and listed.
   - **Hand entries per language**: an entry with `lang='es'` is used only for the Spanish version. Use the key `<game>:es` when the English version already has an entry (e.g. `dune:es`).
   - **Spanish versions eXo runs only in ScummVM** (no DOS config) are listed, so you can get the English one.
@@ -228,7 +240,7 @@ FAKEHMA, BMOUSE, glide/3dfx emulation DLLs, `.ips`, `.bak`, `.pdf`, `.chm`, Duke
 <details>
 <summary><b>Output files</b></summary>
 
-Output (`~/eXoDOS/SETUP86-VOLUME`, rebuilt each run; folders are hardlinks, so only ISOs use space):
+Output (`isos/` in the examples, rebuilt each run; folders are hardlinks, so only ISOs use space):
 
 | Path | What |
 |---|---|
@@ -325,7 +337,7 @@ hardlinks, so they take real space.
 - **Source**: `dosmenu/menu.c`, C for OpenWatcom 2 (16-bit real mode, mode 13h). The built `dosmenu/MENU.EXE` is committed and copied onto each disc.
 - **Build**: unpack OpenWatcom's `ow-snapshot.tar.xz` into `~/.local/opt/openwatcom`, then run `WATCOM=~/.local/opt/openwatcom PATH=$WATCOM/binl64:$PATH INCLUDE=$WATCOM/h wcl -q -w4 -bt=dos -ml -0 -os -k12288 -fe=MENU.EXE menu.c`.
 - **Test**: `MENU /T:KEYS.TXT` reads keys from a file (`UP DOWN ENTER ESC F1 F2 F10 F12 SHOT TEXT:abc`...). `SHOT` dumps the screen to `SHOTnn.BIN` (768-byte palette + 64000 pixels). It runs headless in Exodium's `dosbox-staging` (`SDL_VIDEODRIVER=dummy`), with the ISO mounted via `imgmount d X.ISO -t iso`.
-- **Try a disc on this PC**: `./dosbox-test.sh [ISO] [C-folder]`. It mounts the ISO as `D:` and a folder (default `~/eXoDOS/dosbox-c`, kept between runs) as `C:` in Exodium's `dosbox-staging`, then starts the menu. For example: `./dosbox-test.sh ~/eXoDOS/SETUP86-ADVENTURE/SETUP86-ADVENTURE-01.ISO`. Ctrl+F10 frees the mouse; Ctrl+F9 or `exit` quits DOSBox.
+- **Try a disc on this PC**: `./dosbox-test.sh [ISO] [C-folder]`. It mounts the ISO as `D:` and a folder (default `~/eXoDOS/dosbox-c`, kept between runs) as `C:` in Exodium's `dosbox-staging`, then starts the menu. Without arguments it tries `isos/SETUP86-VOLUME-01.ISO`. Ctrl+F10 frees the mouse; Ctrl+F9 or `exit` quits DOSBox.
 
 </details>
 
