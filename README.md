@@ -23,18 +23,19 @@
 ## Quick start
 
 1. **Install some games with [Exodium](https://github.com/tvollstaedt/exodium)**: every game you download there can go on a disc.
-2. **Get Setup86** and its requirements (see [Installation](#installation)):
-   ```sh
-   git clone https://github.com/arieljuszczyk/setup86 && cd setup86
-   python3 -m venv ~/.venvs/setup86 && ~/.venvs/setup86/bin/pip install pycdlib pillow
-   ```
-3. **Build the discs**:
-   ```sh
-   ~/.venvs/setup86/bin/python setup86.py ~/eXoDOS/eXo/eXoDOS isos --iso all
-   ```
-4. **Try it in DOSBox** before burning: `./dosbox-test.sh` (disc 1; or `./dosbox-test.sh isos/SETUP86-VOLUME-02.ISO`)
-5. **Burn** the ISOs in `isos/` to CD-Rs.
+2. **Get Setup86**:
+   - **Windows**: download `Setup86.exe` from the [latest release](https://github.com/arieljuszczyk/setup86/releases/latest) and run it.
+   - **Linux**: see [Installation](#installation), then run `~/.venvs/setup86/bin/python setup86_gui.py`.
+3. **Fill a disc**: choose your eXoDOS folder, then move games from the left (your eXoDOS games) to the
+   right (the disc) with **Add ►**, a double click or by dragging them. The bar shows how much of the
+   720 MB CD is used.
+4. **Build ISO**. The app makes the disc with its menu, then moves on to the next volume; games
+   already on a disc are marked.
+5. **Burn** the ISO to a CD-R. To try it first: `./dosbox-test.sh <ISO>`.
 6. **On the DOS PC**, put the CD in and run `D:\MENU`. Pick a game, press Enter, and play.
+
+Prefer the command line? `setup86.py` builds every installed game into as many discs as it takes:
+see [Build and burn](#build-and-burn).
 
 ---
 
@@ -56,6 +57,7 @@ helpers and several copies of its sound setup. Setup86 keeps only the real DOS f
 proper 8.3 names, and packs them onto CD-sized discs that a real DOS PC can read.
 
 ### Available now
+- ✅ **Setup86 Disc Builder**, an app for Windows and Linux: pick the games for each disc, like an old CD burner app
 - ✅ One CD (ISO) per 720 MB of games, with every game in its own folder
 - ✅ **`MENU.EXE`** on every disc: a VGA menu with a screenshot, title, year, genre, language and size for each game
 - ✅ Installs a game to your hard disk with one key, checks the free space first, and shows how to start it
@@ -119,6 +121,21 @@ proper 8.3 names, and packs them onto CD-sized discs that a real DOS PC can read
 - Any x86 CPU, MS-DOS 3.3 or later
 - VGA for the graphical menu (the text menu needs DOS 6 and works without VGA)
 - A CD-ROM drive with its DOS driver and MSCDEX
+
+### The Disc Builder app
+
+**Windows**: download `Setup86.exe` from the [latest release](https://github.com/arieljuszczyk/setup86/releases/latest).
+It has everything inside: no Python needed. Windows may warn that it is an unrecognized app (it is not
+signed): choose "More info" and "Run anyway".
+
+**Linux**: set up Setup86 as below (plus Tkinter: `sudo apt install python3-tk` on Debian/Ubuntu), then
+run `~/.venvs/setup86/bin/python setup86_gui.py`.
+
+Choose your eXoDOS folder (the one with `eXo` inside). The left side lists your installed games, with
+their size and a note when eXo mounts their CD but they run without it. Tick **Show games that can't
+go on a disc** to see the others and why. Move games to the disc on the right, set the series and
+number (Setup86 Volume 1, 2...), and press **Build ISO**. Each disc goes into its own folder in the
+output folder, with its ISO and its `DISCn.TXT`.
 
 ### Set up Setup86
 
