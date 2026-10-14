@@ -22,7 +22,7 @@ new games don't reshuffle what's already burned.
 """
 import os, re, sys, shutil, base64, time, tempfile
 
-VERSION = '1.1.0'  # the release; MENU.EXE shows it too (VERSION in dosmenu/menu.c)
+VERSION = '1.2.0'  # the release; MENU.EXE shows it too (VERSION in dosmenu/menu.c)
 SRC = OUT = None   # set in main()
 LANG = {}          # game -> 'es' when the Spanish version is used (set in main)
 
