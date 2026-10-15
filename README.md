@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/menu.png" width="820" alt="The Setup86 menu on a DOS PC: the game list on the left, a DOOM screenshot with its year, genre, language and size on the right" />
+  <img src="docs/screenshots/menu.png" width="820" alt="The Setup86 menu on a DOS PC: the game list on the left, a DOOM screenshot with its year, genre, language, size and Sound Canvas and GUS chips on the right" />
 </p>
 
 ## Quick start
@@ -81,14 +81,15 @@ It runs on anything from an 8086 with VGA to a Pentium, with DOS 3.3 or later.
 
 <table>
   <tr>
-    <td colspan="2" align="center"><img src="docs/screenshots/menu2.png" width="50%" alt="The menu with Battle Chess selected: a screenshot of the 3D chess board, its year 1988, genre Board, Strategy, English, 1.2 MB" /><br><sub>Every game with its screenshot, year, genre, language and size.</sub></td>
+    <td width="50%"><img src="docs/screenshots/menu2.png" alt="The menu with King's Quest VI selected: a screenshot of the island beach, 1992, Adventure, Spanish, 16.3 MB, and the chips MT-32, Sound Canvas and GUS" /><br><sub>Every game with its screenshot, year, genre, language, size and what it supports.</sub></td>
+    <td width="50%"><img src="docs/screenshots/info.png" alt="Info screen for King's Quest VI: 1992, Adventure, the chips MT-32, Sound Canvas and GUS, and a short description of the game" /><br><sub><b>F3</b>: what the game supports and a short description.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/install.png" alt="Install dialog for Raptor: Call of the Shadows, asking for the directory C:\GAMES\RAPTOR" /><br><sub><b>Enter</b>: pick a folder and the game is copied to your hard disk.</sub></td>
+    <td width="50%"><img src="docs/screenshots/install.png" alt="Install dialog for Raptor - Call of the Shadows, asking for the directory C:\GAMES\RAPTORCA" /><br><sub><b>Enter</b>: pick a folder and the game is copied to your hard disk.</sub></td>
     <td width="50%"><img src="docs/screenshots/install-es.png" alt="The same dialog in Spanish for Rally Championships, with the directory C:\JUEGOS\RALLYCHA" /><br><sub><b>F10</b>: every screen in Spanish too.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/help.png" alt="Help screen listing the keys: arrows, PgUp PgDn, Home End, A-Z, ENTER, F1, F2, F10, F12 and ESC" /><br><sub><b>F1</b>: the keys.</sub></td>
+    <td width="50%"><img src="docs/screenshots/help.png" alt="Help screen listing the keys: arrows, PgUp PgDn, Home End, A-Z, ENTER, F3 SPACE, F2, F10, F12 and ESC" /><br><sub><b>F1</b>: the keys.</sub></td>
     <td width="50%"><img src="docs/screenshots/about.png" alt="About screen with the credits, the GitHub page, the MIT License and the Ko-fi link" /><br><sub><b>F12</b>: About.</sub></td>
   </tr>
 </table>
@@ -300,7 +301,7 @@ hardlinks, so they take real space.
 <summary><b>The menu (MENU.EXE) in detail</b></summary>
 
 - **On the DOS PC**: from the CD drive (`D:`) run `MENU`. It needs VGA (any CPU, DOS 3.3+).
-  - **Screen**: the game list on the left, and a screenshot, title, year, genre, language and size on the right. Chips along the bottom of the screenshot show what the game supports: **MT-32**, **Sound Canvas**, **GUS** (Gravis Ultrasound) in green, **3dfx** in blue. They come from the tags in eXo's Series field (`Playlist: Roland MT-32`, `Playlist: Sound Canvas`, `Playlist: Gravis Ultrasound`, `Playlist: 3DFX`), the same ones eXo's and Exodium's playlists filter on.
+  - **Screen**: the game list on the left, and a screenshot, title, year, genre, language and size on the right. Chips under the language and size show what the game supports: **MT-32**, **Sound Canvas**, **GUS** (Gravis Ultrasound) in green, **3dfx** in blue. They come from the tags in eXo's Series field (`Playlist: Roland MT-32`, `Playlist: Sound Canvas`, `Playlist: Gravis Ultrasound`, `Playlist: 3DFX`), the same ones eXo's and Exodium's playlists filter on.
   - **F3** (or Space) shows the game's info screen: year, genre, what it supports and a short description (Exodium's, cut to whole sentences that fit; `_MENU\<GAME>.TXT`). Enter there installs it.
   - **Keys**: arrows, PgUp/PgDn, Home/End, or a letter to jump to the next game with that initial.
   - **F1** shows a help screen. **F10** switches every screen between English and Spanish: header, help, dialogs, language and genre (`GENRE_ES` in `MENU.DAT`). Accents use the VGA font's own CP437 characters. Game titles and play commands aren't translated.
