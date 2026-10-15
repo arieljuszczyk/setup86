@@ -462,13 +462,45 @@ def short83(n, taken):
 renamed, dropped_junk, extracted, long_dirs, added = [], [], [], [], []
 DOS_SYSTEM = {'io.sys', 'msdos.sys', 'ibmbio.com', 'ibmdos.com', 'command.com', 'drvspace.bin', 'dblspace.bin'}
 
+_ES_ZIP = {}
+
+def es_zip_names(g):
+    """Member paths of game g's Spanish pack zip ('SMRailTD/RAILSDX/africa.dta'), or an empty set."""
+    if g not in _ES_ZIP:
+        names = set()
+        zp = os.path.join(SRC, '!spanish', (exodium_info().get(g.lower(), {}).get('name') or g) + '.zip')
+        if os.path.isfile(zp) and os.path.getsize(zp):
+            import zipfile
+            try:
+                with zipfile.ZipFile(zp) as z:
+                    names = {n.rstrip('/') for n in z.namelist()}
+            except zipfile.BadZipFile:
+                pass
+        _ES_ZIP[g] = names
+    return _ES_ZIP[g]
+
 def link_tree(src, dst, rel, drop_extra, skip_dirs=frozenset(), names=DROP_NAMES, top=True):
     """Hardlink src tree into dst with uppercase 8.3 names; return byte size."""
     os.makedirs(dst, exist_ok=True)
     taken, size = set(), 0
-    parent_names = {e.name.upper() for e in os.scandir(src) if e.is_file()}
+    ents = list(os.scandir(src))
+    parent_names = {e.name.upper() for e in ents if e.is_file()}
+    # A Spanish pack unpacked over the English files on a case-sensitive disk leaves both
+    # (AFRICA.DTA and africa.dta): keep the one in the Spanish zip, drop the English one.
+    g = rel.split('/')[0]
+    if LANG.get(g) == 'es':
+        same = {}
+        for e in ents:
+            same.setdefault(e.name.upper(), []).append(e)
+        for group in (v for v in same.values() if len(v) > 1):
+            keep = [e for e in group if rel + '/' + e.name in es_zip_names(g)]
+            if len(keep) == 1:
+                for e in group:
+                    if e is not keep[0]:
+                        dropped_junk.append(rel + '/' + e.name + ' (English, the Spanish pack has ' + keep[0].name + ')')
+                        ents.remove(e)
     # names that are already valid 8.3 first, so a shortened name never takes theirs
-    for ent in sorted(os.scandir(src), key=lambda e: (dosname(e.name) is None, e.name)):
+    for ent in sorted(ents, key=lambda e: (dosname(e.name) is None, e.name)):
         nm = ent.name
         if ent.is_dir() and (nm.lower() in skip_dirs or is_preset(ent.path, parent_names)
                              or is_windows_only(ent.path)):
@@ -1085,6 +1117,14 @@ def pic_bytes(im):
     pal = (q.getpalette() + [0] * 720)[:720]
     return bytes(v >> 2 for v in pal) + bytes(p + 16 for p in q.tobytes())
 
+# MENU.EXE list names chosen by hand: games no rule tells apart (same title start, same year)
+LIST_NAMES = {'indy4': 'Indy Atlantis', 'indijfoa': 'Indy Atl Action',
+              'indycru': 'Indy Last Crus.', 'inijlca': 'Indy LC Action',
+              'wwcs': 'Carmen World', 'wwcse': 'Carmen Enhanced',
+              'pq1': 'Police Quest I', 'pq1_vga': 'Police Q. I VGA',
+              'sq1': 'Space Quest I', 'sq1vga': 'Space Q. I VGA',
+              'sf2': 'StreetFighter 2', 'sf2ww': 'SF2 World Warr.'}
+
 LIST_ABBREV = [('Leisure Suit Larry', 'Larry'), ('Indiana Jones and the ', 'Indy '), ('Indiana Jones', 'Indy'),
                ('Commander Keen', 'Keen'), ('Secret of Monkey Island', 'Monkey Island'), ("Sid Meier's ", ''),
                ('California Games', 'Calif. Games'), ('Railroad Tycoon', 'RR Tycoon'),
@@ -1129,6 +1169,8 @@ def list_name(title, w=15):
     for a, b in LIST_ABBREV:
         if len(t) > w:
             t = re.sub(re.escape(a), b, t, flags=re.I)
+    if len(t) > w and len(t.replace("'", '')) <= w:       # "Kings Quest III" rather than "King's Quest 3"
+        t = t.replace("'", '')
     roman = {'II': '2', 'III': '3', 'IV': '4', 'V': '5', 'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10'}
     if len(t) > w:
         t = re.sub(r'\b(II|III|IV|V|VI|VII|VIII|IX|X)\b', lambda m: roman[m.group(1)], t)
@@ -1163,7 +1205,39 @@ def brief(text, w=DESC_W, lines=DESC_LINES):
         words.pop()
     return ' '.join(words) + '...'
 
-def write_gui(root, label, dk, series, vol, build):
+def menu_names(gms):
+    """GU -> MENU.EXE list name for every game of a build (all its discs: an installed menu shows
+    them in one list), told apart when two would look the same."""
+    asc = lambda t: t.encode('ascii', 'replace').decode()
+    names = {gm['GU']: LIST_NAMES.get(gm['g'].lower()) or list_name(asc(gm['d']['title'].replace(' [ESPANOL]', '')))
+             for gm in gms}
+    key = lambda gm: names[gm['GU']].rstrip('~').lower()
+    def groups():
+        seen = {}
+        for gm in gms:
+            seen.setdefault(key(gm), []).append(gm)
+        return [v for v in seen.values() if len(v) > 1]
+    # e.g. Dragon's Lair 1989 and its 1993 CD-ROM edition: Exodium's fuller title
+    for group in groups():
+        for gm in group:
+            db_title = exodium_info().get(gm['g'].lower(), {}).get('title')
+            if db_title:
+                names[gm['GU']] = list_name(asc(db_title))
+    # still alike (Xmas Lemmings 1991 and 1992): the start of the name + the year
+    for group in groups():
+        for gm in group:
+            m = re.search(r'\((\d{4})', gm['d']['title'])
+            year = m.group(1) if m else str(exodium_info().get(gm['g'].lower(), {}).get('year') or '')
+            if year:
+                base = names[gm['GU']].rstrip('~')
+                names[gm['GU']] = base + ' ' + year if len(base) + 5 <= 15 else base[:9].rstrip() + '. ' + year
+    low = [n.lower() for n in names.values()]
+    dupes = sorted({n for n in names.values() if low.count(n.lower()) > 1})
+    if dupes:
+        print('MENU.EXE list: still the same name for several games: ' + ', '.join(sorted(dupes)))
+    return names
+
+def write_gui(root, label, dk, series, vol, build, all_names=None):
     """MENU.EXE (+ the same program as INSTALL.EXE) + _MENU\\MENU.DAT + one _MENU\\<GAME>.PIC
     per game + \\SETUP86.ID, which tells an installed menu which disc this is."""
     ident = ['SET ' + series, 'VOL %d' % vol, 'BUILD ' + build]
@@ -1177,21 +1251,7 @@ def write_gui(root, label, dk, series, vol, build):
     os.makedirs(mdir, exist_ok=True)
     asc = lambda t: t.encode('ascii', 'replace').decode()
     lines, nopic = ['LABEL ' + label] + ident, []
-    names = {gm['GU']: list_name(asc(gm['d']['title'].replace(' [ESPANOL]', ''))) for gm in dk}
-    # two games with the same list name (e.g. Dragon's Lair 1989 and its 1993 CD-ROM edition):
-    # use Exodium's fuller title for them
-    seen = {}
-    for gm in dk:
-        seen.setdefault(names[gm['GU']].rstrip('~').lower(), []).append(gm)
-    for group in (v for v in seen.values() if len(v) > 1):
-        for gm in group:
-            db_title = exodium_info().get(gm['g'].lower(), {}).get('title')
-            if db_title:
-                names[gm['GU']] = list_name(asc(db_title))
-    low = [n.lower() for n in names.values()]
-    dupes = sorted({n for n in names.values() if low.count(n.lower()) > 1})
-    if dupes:
-        print('MENU.EXE list: still the same name for several games: ' + ', '.join(sorted(dupes)))
+    names = all_names or menu_names(dk)
     for gm in sorted(dk, key=lambda x: names[x['GU']].lower()):
         g, GU = gm['g'], gm['GU']
         info = exodium_info().get(g.lower(), {})
@@ -1496,6 +1556,7 @@ def main(argv=None):
     want = (set(range(a.first, a.first + len(discs))) if a.iso == 'all' else set() if a.iso == 'none'
             else {int(x) for x in a.iso.split(',')})
     build = time.strftime('%Y%m%d%H%M')               # tells an installed menu that a disc was rebuilt
+    all_names = menu_names([gm for dk in discs for gm in dk])
     for n, dk in enumerate(discs, a.first):
         root = os.path.join(OUT, 'DISC%d' % n)
         os.makedirs(root)
@@ -1515,7 +1576,7 @@ def main(argv=None):
                 lines.append('    supports: ' + ', '.join(HW_NAMES[t] for t in hw))
             lines += ['    ' + remap(h, gm) for h in howto(gm['g'], gm['d'])]
         write_menu(root, n, dk, a.series)
-        note = write_gui(root, 'Setup86 %s %d' % (a.series, n), dk, a.series, n, build)
+        note = write_gui(root, 'Setup86 %s %d' % (a.series, n), dk, a.series, n, build, all_names)
         if note:
             warn.append('DISC%d menu: %s' % (n, note))
         with open(os.path.join(OUT, 'DISC%d.TXT' % n), 'w') as f:
