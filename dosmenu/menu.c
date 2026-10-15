@@ -36,7 +36,7 @@
 #include <direct.h>
 #include <sys/stat.h>
 
-#define VERSION   "v1.3.0"      /* shown at the right of the top bar; the release tag */
+#define VERSION   "v1.3.1"      /* shown at the right of the top bar; the release tag */
 #define MAXGAMES  400
 #define MAXRUN    12
 #define SHOT_W    192
@@ -604,28 +604,29 @@ static int wrap(const char far *s, int w, char out[][41], int maxl)
     return n;
 }
 
-/* what the game supports: chips in the tiny font along the bottom of the screenshot */
-static void draw_chips(Game far *g)
+/* what the game supports: a row of chips in the tiny font */
+static void draw_chips(Game far *g, int y)
 {
-    int i, x = SHOT_X + SHOT_W - 1, y = SHOT_Y + SHOT_H - 9;
-    for (i = NHW - 1; i >= 0; i--)
+    int i, x = SHOT_X;
+    for (i = 0; i < NHW; i++)
         if (g->hw & (1 << i)) {
             int w = tiny_width(hw_list[i].chip) + 4;
-            x -= w;
             fill(x, y, w, 8, hw_list[i].col);
             tiny_text(x + 2, y + 1, hw_list[i].chip, C_HITEXT);
-            x -= 2;
+            x += w + 2;
         }
 }
 
+/* under the screenshot, 6 rows of 9 pixels: the title (up to 3 rows), year and genre,
+ * language and size, then what it supports and (installed) the disc, when there are */
 static void draw_info(Game far *g)
 {
     char lines[3][41], buf[60];
-    int n, i, y = SHOT_Y + SHOT_H + 4;
+    int n, i, y = SHOT_Y + SHOT_H + 2;
+    n = 6 - 2 - (g->hw != 0) - coll;
     fill(SHOT_X, y, SHOT_W, 200 - 11 - y, C_BG);
-    n = wrap(g->title ? g->title : (char far *)"", 24, lines, coll ? 2 : 3);   /* installed: + disc line */
+    n = wrap(g->title ? g->title : (char far *)"", 24, lines, n > 3 ? 3 : n);
     for (i = 0; i < n; i++, y += 9) text(SHOT_X, y, lines[i], C_TITLE, -1, 24);
-    y += 2;
     {
         char far *genre = (lang && g->genre_es) ? g->genre_es : g->genre;
         sprintf(buf, "%Fs  %Fs", g->year ? g->year : (char far *)"", genre ? genre : (char far *)"");
@@ -633,11 +634,11 @@ static void draw_info(Game far *g)
     text(SHOT_X, y, buf, C_TEXT, -1, 24); y += 9;
     sprintf(buf, "%s, %lu.%lu MB", (g->lang && g->lang[0] == 'S') ? L(S_SPANISH) : L(S_ENGLISH),
             g->size / 1000000UL, (g->size / 100000UL) % 10);
-    text(SHOT_X, y, buf, C_DIM, -1, 24);
-    draw_chips(g);
+    text(SHOT_X, y, buf, C_DIM, -1, 24); y += 9;
+    if (g->hw) { draw_chips(g, y); y += 9; }
     if (coll) {
         sprintf(buf, L(S_DISCLINE), vols[g->vi].set, vols[g->vi].vol);
-        text(SHOT_X, y + 9, buf, C_TITLE, -1, 24);
+        text(SHOT_X, y, buf, C_TITLE, -1, 24);
     }
 }
 
