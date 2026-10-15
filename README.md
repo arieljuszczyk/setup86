@@ -114,7 +114,12 @@ It runs on anything from an 8086 with VGA to a Pentium, with DOS 3.3 or later.
 It has everything inside: no Python needed. Windows may warn that it is an unrecognized app (it is not
 signed): choose "More info" and "Run anyway".
 
-**Linux**: set up Setup86 as below (plus Tkinter: `sudo apt install python3-tk` on Debian/Ubuntu), then
+**Debian / Ubuntu**: download `setup86_<version>_all.deb` from the [latest release](https://github.com/arieljuszczyk/setup86/releases/latest)
+and install it with `sudo apt install ./setup86_*_all.deb` (apt adds what it needs: Python's Tkinter,
+Pillow and pycdlib, and ffmpeg). Then start **Setup86** from the app menu, or `setup86` in a terminal;
+`setup86-cli` is the command line (`setup86.py`). To build the package yourself: `packaging/build-deb.sh`.
+
+**Other Linux**: set up Setup86 as below (plus Tkinter: `sudo apt install python3-tk` on Debian/Ubuntu), then
 run `./setup86.sh` from the `setup86` folder (it uses the venv by itself). `./setup86.sh --desktop`
 adds Setup86, with its icon, to the app menu and dock.
 

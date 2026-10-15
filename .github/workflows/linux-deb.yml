@@ -1,0 +1,38 @@
+# Builds setup86_<version>_all.deb (Debian/Ubuntu: the Disc Builder app, setup86.py and MENU.EXE).
+# On a v* tag it is attached to that GitHub release; run by hand, it is kept as a workflow artifact.
+name: Linux package
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the .deb
+        run: sh packaging/build-deb.sh
+
+      - name: Install it and check that the app imports
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ./dist/setup86_*_all.deb
+          python3 -c "import sys; sys.path.insert(0, '/usr/share/setup86'); import setup86, setup86_gui; print('Setup86', setup86.VERSION)"
+          setup86-cli --help > /dev/null
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Setup86-deb
+          path: dist/*.deb
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload ${{ github.ref_name }} dist/*.deb --clobber
