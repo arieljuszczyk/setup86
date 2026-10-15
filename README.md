@@ -81,6 +81,9 @@ It runs on anything from an 8086 with VGA to a Pentium, with DOS 3.3 or later.
 
 <table>
   <tr>
+    <td colspan="2" align="center"><img src="docs/screenshots/menu2.png" width="50%" alt="The menu with Battle Chess selected: a screenshot of the 3D chess board, its year 1988, genre Board, Strategy, English, 1.2 MB" /><br><sub>Every game with its screenshot, year, genre, language and size.</sub></td>
+  </tr>
+  <tr>
     <td width="50%"><img src="docs/screenshots/install.png" alt="Install dialog for Raptor: Call of the Shadows, asking for the directory C:\GAMES\RAPTOR" /><br><sub><b>Enter</b>: pick a folder and the game is copied to your hard disk.</sub></td>
     <td width="50%"><img src="docs/screenshots/install-es.png" alt="The same dialog in Spanish for Rally Championships, with the directory C:\JUEGOS\RALLYCHA" /><br><sub><b>F10</b>: every screen in Spanish too.</sub></td>
   </tr>
