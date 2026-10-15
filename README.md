@@ -29,7 +29,7 @@
    720 MB CD is used.
 4. **Build ISO**. The app makes the disc with its menu, then moves on to the next volume; games
    already on a disc are marked.
-5. **Burn** the ISO to a CD-R. To try it first: `./dosbox-test.sh <ISO>`.
+5. **Burn** the ISO to a CD-R. To try it first: `./dosbox-test.sh <ISO>` or mount the image with any image software.
 6. **On the DOS PC**, put the CD in and run `D:\MENU`. Pick a game, press Enter, and play.
 
 Prefer the command line? `setup86.py` builds every installed game into as many discs as it takes:
@@ -38,7 +38,7 @@ see [Build and burn](#build-and-burn).
 ## What's on a Setup86 disc
 
 eXoDOS games are set up for DOSBox: each one comes with launchers, DOSBox settings, emulator helpers
-and several copies of its sound setup. A Setup86 disc keeps only what a real DOS PC needs:
+and several copies of its sound setup. A Setup86 disc keeps the original files, only what a real DOS PC needs:
 
 | On the CD | What it is |
 |---|---|
@@ -55,7 +55,7 @@ It runs on anything from an 8086 with VGA to a Pentium, with DOS 3.3 or later.
 - **The Disc Builder app** (Windows and Linux): choose the games for each disc yourself.
 - **The command line** (`setup86.py`): every installed game in as many discs as it takes, genre
   collections, and new discs that continue a series you already burned.
-- **Spanish versions** go on the disc instead of the English ones when you've downloaded them in Exodium.
+- **Spanish versions** go on the disc instead of the English ones when you've downloaded them with eXoDOS colection or in Exodium.
 - **Next up:** classic eXoDOS installs (LaunchBox / exogui, games still zipped), not only Exodium.
 
 ## Good to know
@@ -95,7 +95,7 @@ It runs on anything from an 8086 with VGA to a Pentium, with DOS 3.3 or later.
 ### What you need
 
 **On the PC that builds the discs** (Linux):
-- [Exodium](https://github.com/tvollstaedt/exodium) with the games you want already downloaded
+- [Exodium](https://github.com/tvollstaedt/exodium) with the games you want already downloaded or eXoDOS colection
 - Python 3 with [pycdlib](https://github.com/clalancette/pycdlib) and [Pillow](https://python-pillow.org)
 - [ffmpeg](https://ffmpeg.org), for the game screenshots
 - A CD burner, or a way to get the ISO to one
