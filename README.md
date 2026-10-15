@@ -23,7 +23,7 @@
 1. **Install some games with [Exodium](https://github.com/tvollstaedt/exodium)**: every game you download there can go on a disc.
 2. **Get Setup86**:
    - **Windows**: download `Setup86.exe` from the [latest release](https://github.com/arieljuszczyk/setup86/releases/latest) and run it.
-   - **Linux**: see [Installation](#installation), then run `~/.venvs/setup86/bin/python setup86_gui.py`.
+   - **Linux**: see [Installation](#installation), then run `./setup86.sh` in the `setup86` folder.
 3. **Fill a disc**: choose your eXoDOS folder, then move games from the left (your eXoDOS games) to the
    right (the disc) with **Add ►**, a double click or by dragging them. The bar shows how much of the
    720 MB CD is used.
@@ -112,7 +112,8 @@ It has everything inside: no Python needed. Windows may warn that it is an unrec
 signed): choose "More info" and "Run anyway".
 
 **Linux**: set up Setup86 as below (plus Tkinter: `sudo apt install python3-tk` on Debian/Ubuntu), then
-run `~/.venvs/setup86/bin/python setup86_gui.py`.
+run `./setup86.sh` from the `setup86` folder (it uses the venv by itself). `./setup86.sh --desktop`
+adds Setup86, with its icon, to the app menu and dock.
 
 Choose your eXoDOS folder (the one with `eXo` inside). The left side lists your installed games, with
 their size and a note when eXo mounts their CD but they run without it. Tick **Show games that can't

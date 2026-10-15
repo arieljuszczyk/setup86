@@ -157,7 +157,7 @@ class QueueWriter:
 
 class App(tk.Tk):
     def __init__(self):
-        super().__init__()
+        super().__init__(className='setup86')   # WM_CLASS: Linux docks match it to setup86.desktop
         self.title('%s %s' % (APP, setup86.VERSION))
         self.geometry('1180x720')
         self.minsize(900, 560)
