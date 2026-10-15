@@ -43,7 +43,7 @@ and several copies of its sound setup. A Setup86 disc keeps the original files, 
 | On the CD | What it is |
 |---|---|
 | `\DOOM\`, `\KQ6CD\`, ... | each game's own DOS files, with 8.3 names, ready to copy to `C:` |
-| `MENU.EXE` | the VGA menu: a screenshot, year, genre, language, size and what it supports (MT-32, Sound Canvas, Gravis Ultrasound, 3dfx) for each game, and a short description with **F3**. **Enter** installs a game after checking the free space and tells you how to start it. **F10** switches between English and Spanish |
+| `MENU.EXE` | the VGA menu: a screenshot, year, genre, language, size and what it supports (MT-32, Sound Canvas, Gravis Ultrasound, 3dfx) for each game, and a short description with **F3**. **F4** shows only the MT-32 games, or only the Sound Canvas ones. **Enter** installs a game after checking the free space and tells you how to start it. **F10** switches between English and Spanish |
 | `INSTALL.EXE` | puts the menu on the hard disk (`C:\SETUP86`), where every disc you add shows up in one list and the menu asks for the right volume |
 | `TXTMENU.BAT` | a text-mode menu for PCs without VGA |
 | `SETUP86.ID` | tells the hard-disk menu which volume the disc is |
@@ -92,7 +92,7 @@ It runs on anything from an 8086 with VGA to a Pentium, with DOS 3.3 or later.
     <td width="50%"><img src="docs/screenshots/install-es.png" alt="The same dialog in Spanish for Rally Championships, with the directory C:\JUEGOS\RALLYCHA" /><br><sub><b>F10</b>: every screen in Spanish too.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/help.png" alt="Help screen listing the keys: arrows, PgUp PgDn, Home End, A-Z, ENTER, F3 SPACE, F2, F10, F12 and ESC" /><br><sub><b>F1</b>: the keys.</sub></td>
+    <td width="50%"><img src="docs/screenshots/help.png" alt="Help screen listing the keys: arrows, PgUp PgDn, Home End, A-Z, ENTER, F3 SPACE, F2, F4, F10, F12 and ESC" /><br><sub><b>F1</b>: the keys.</sub></td>
     <td width="50%"><img src="docs/screenshots/about.png" alt="About screen with the credits, the GitHub page, the MIT License and the Ko-fi link" /><br><sub><b>F12</b>: About.</sub></td>
   </tr>
 </table>
@@ -164,6 +164,7 @@ as `C:`, then starts the menu. Then burn it with any CD burning app (K3b, Braser
 | A-Z | Jump to the next game starting with that letter |
 | Enter | Install the game (default `C:\GAMES\<GAME>`) |
 | F3 or Space | Game info: what it supports (MT-32, Sound Canvas, Gravis Ultrasound, 3dfx) and a short description |
+| F4 | Show only the games for a Roland MT-32, then only those for a Sound Canvas, then all again. The top bar shows the filter in use |
 | F1 | Help |
 | F2 | Install the menu to the hard disk (`C:\SETUP86`), with all your discs in one list |
 | F10 | English / Español |
@@ -305,6 +306,7 @@ hardlinks, so they take real space.
 
 - **On the DOS PC**: from the CD drive (`D:`) run `MENU`. It needs VGA (any CPU, DOS 3.3+).
   - **Screen**: the game list on the left, and a screenshot, title, year, genre, language and size on the right. Chips under the language and size show what the game supports: **MT-32**, **Sound Canvas**, **GUS** (Gravis Ultrasound) in green, **3dfx** in blue. They come from the tags in eXo's Series field (`Playlist: Roland MT-32`, `Playlist: Sound Canvas`, `Playlist: Gravis Ultrasound`, `Playlist: 3DFX`), the same ones eXo's and Exodium's playlists filter on.
+  - **F4** filters the list: all games, only MT-32, only Sound Canvas (from each game's `SUPPORTS` line); a chip in the top bar shows the filter. A filter with no games in the list is skipped with a message.
   - **F3** (or Space) shows the game's info screen: year, genre, what it supports and a short description (Exodium's, cut to whole sentences that fit; `_MENU\<GAME>.TXT`). Enter there installs it.
   - **Keys**: arrows, PgUp/PgDn, Home/End, or a letter to jump to the next game with that initial.
   - **F1** shows a help screen. **F10** switches every screen between English and Spanish: header, help, dialogs, language and genre (`GENRE_ES` in `MENU.DAT`). Accents use the VGA font's own CP437 characters. Game titles and play commands aren't translated.
@@ -347,7 +349,7 @@ hardlinks, so they take real space.
 
 - **Source**: `dosmenu/menu.c`, C for OpenWatcom 2 (16-bit real mode, mode 13h). The built `dosmenu/MENU.EXE` is committed and copied onto each disc.
 - **Build**: unpack OpenWatcom's `ow-snapshot.tar.xz` into `~/.local/opt/openwatcom`, then run `WATCOM=~/.local/opt/openwatcom PATH=$WATCOM/binl64:$PATH INCLUDE=$WATCOM/h wcl -q -w4 -bt=dos -ml -0 -os -k12288 -fe=MENU.EXE menu.c`.
-- **Test**: `MENU /T:KEYS.TXT` reads keys from a file (`UP DOWN ENTER ESC SPACE F1 F2 F3 F10 F12 SHOT TEXT:abc`...). `SHOT` dumps the screen to `SHOTnn.BIN` (768-byte palette + 64000 pixels). It runs headless in Exodium's `dosbox-staging` (`SDL_VIDEODRIVER=dummy`), with the ISO mounted via `imgmount d X.ISO -t iso`.
+- **Test**: `MENU /T:KEYS.TXT` reads keys from a file (`UP DOWN ENTER ESC SPACE F1 F2 F3 F4 F10 F12 SHOT TEXT:abc`...). `SHOT` dumps the screen to `SHOTnn.BIN` (768-byte palette + 64000 pixels). It runs headless in Exodium's `dosbox-staging` (`SDL_VIDEODRIVER=dummy`), with the ISO mounted via `imgmount d X.ISO -t iso`.
 - **Try a disc on this PC**: `./dosbox-test.sh [ISO] [C-folder]`. It mounts the ISO as `D:` and a folder (default `~/eXoDOS/dosbox-c`, kept between runs) as `C:` in Exodium's `dosbox-staging`, then starts the menu. Without arguments it tries `isos/SETUP86-VOLUME-01.ISO`. Ctrl+F10 frees the mouse; Ctrl+F9 or `exit` quits DOSBox.
 - **Try the whole collection**: `./dosbox-test.sh all [ISO folder] [C-folder]` sets up `C:\SETUP86` as if the menu had been installed on the hard disk from every `SETUP86-*.ISO` in the folder (default `isos/`, or the folder written in a git-ignored `.isos-dir` file, e.g. a NAS share), mounts all the ISOs as `D:` and starts the menu with every game listed. When it asks for another disc, Ctrl+F4 switches to the next ISO.
 

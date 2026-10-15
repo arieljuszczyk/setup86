@@ -79,7 +79,7 @@ enum { S_HEADER, S_FOOTER, S_NOPIC, S_SPANISH, S_ENGLISH, S_PRESS, S_WHERE, S_OK
        S_FOOTER_C, S_H_F2D, S_H_F2C, S_MWHERE, S_MDONE, S_MRUN, S_INSERT, S_READY, S_NEWDISC, S_ADDQ,
        S_NEWBUILD, S_UPDQ, S_NODISC, S_ADDED, S_NOTONDISC, S_MCOPYFAIL, S_DISCLINE, S_TOOMANY,
        S_H_ABOUT, S_ABOUT, S_A_BY, S_A_MADE1, S_A_MADE2, S_A_FREE, S_A_DONATE, S_A_VER,
-       S_H_INFO, S_INFOKEYS, S_NODESC, S_COUNT };
+       S_H_INFO, S_INFOKEYS, S_NODESC, S_H_FILTER, S_NOFILTER, S_COUNT };
 static const char *msgs[2][S_COUNT] = {
     { "SETUP86 COLLECTION",
       "ENTER Install F1 Help F2 HD F3 Info",
@@ -146,7 +146,9 @@ static const char *msgs[2][S_COUNT] = {
       "Version %s",
       "Game info and description",
       "ENTER Install   ESC Back",
-      "(no description)" },
+      "(no description)",
+      "Filter MT-32 / Sound Canvas",
+      "No %s games in this list" },
     { "SETUP86 COLLECTION",
       "ENTER Inst. F1 Ayuda F2 HD F3 Info",
       "(sin imagen)",
@@ -212,7 +214,9 @@ static const char *msgs[2][S_COUNT] = {
       "Versi\242n %s",
       "Datos y descripci\242n",
       "ENTER Instalar   ESC Volver",
-      "(sin descripci\242n)" } };
+      "(sin descripci\242n)",
+      "Filtro MT-32 / Sound Canvas",
+      "No hay juegos %s en la lista" } };
 static int lang;                      /* 0 English, 1 Spanish (F10) */
 #define L(id) msgs[lang][id]
 
@@ -249,6 +253,9 @@ static const char *license_body[] = {         /* LICENSE re-wrapped to 80 column
 
 static Game far *games;
 static int ngames;
+/* F4: the list shows all games, or only those with one of these (hw_list index; -1 = all) */
+static const int filters[] = { -1, 0, 1 };      /* all, MT-32, Sound Canvas */
+static int filt, view[MAXGAMES], nview;         /* view: indexes in games[] of the shown games */
 static char label[40], base[80], exe[80];
 
 /* the discs: in disc mode only this one (vols[0]); installed, all known ones */
@@ -372,7 +379,7 @@ static void text_c(int y, const char far *s, int fg)   /* centred */
 /* ---------- keyboard (or test script) ---------- */
 
 enum { K_UP = 0x148, K_DOWN = 0x150, K_PGUP = 0x149, K_PGDN = 0x151,
-       K_HOME = 0x147, K_END = 0x14F, K_F1 = 0x13B, K_F2 = 0x13C, K_F3 = 0x13D, K_F10 = 0x144, K_F12 = 0x186,
+       K_HOME = 0x147, K_END = 0x14F, K_F1 = 0x13B, K_F2 = 0x13C, K_F3 = 0x13D, K_F4 = 0x13E, K_F10 = 0x144, K_F12 = 0x186,
        K_ENTER = 13, K_ESC = 27, K_BKSP = 8 };
 
 static char pending[64];
@@ -416,6 +423,7 @@ static int getkey(void)
             if (!strcmp(tok, "F10")) return K_F10;
             if (!strcmp(tok, "F2")) return K_F2;
             if (!strcmp(tok, "F3")) return K_F3;
+            if (!strcmp(tok, "F4")) return K_F4;
             if (!strcmp(tok, "SPACE")) return ' ';
             if (!strcmp(tok, "F12")) return K_F12;
             if (!strncmp(tok, "KEY:", 4)) return (unsigned char)tok[4];
@@ -642,12 +650,21 @@ static void draw_info(Game far *g)
     }
 }
 
+static int build_view(void)
+{
+    int i, f = filters[filt];
+    nview = 0;
+    for (i = 0; i < ngames; i++)
+        if (f < 0 || (games[i].hw & (1 << f))) view[nview++] = i;
+    return nview;
+}
+
 static void draw_list(int top, int sel)
 {
     int i;
     fill(0, LIST_Y - 1, SHOT_X - 3, LIST_ROWS * ROW_H + 2, C_PANEL);
-    for (i = 0; i < LIST_ROWS && top + i < ngames; i++) {
-        Game far *g = &games[top + i];
+    for (i = 0; i < LIST_ROWS && top + i < nview; i++) {
+        Game far *g = &games[view[top + i]];
         int y = LIST_Y + i * ROW_H;
         if (top + i == sel) {
             fill(0, y - 1, SHOT_X - 3, ROW_H, C_HILITE);
@@ -657,7 +674,7 @@ static void draw_list(int top, int sel)
     }
     /* more games above / below: arrows in the top and bottom bars */
     text(4, 1, top > 0 ? "\x18" : " ", C_TITLE, C_BAR, 1);
-    text(4, 191, top + LIST_ROWS < ngames ? "\x19" : " ", C_TITLE, C_BAR, 1);
+    text(4, 191, top + LIST_ROWS < nview ? "\x19" : " ", C_TITLE, C_BAR, 1);
 }
 
 static void draw_frame(void)
@@ -672,6 +689,11 @@ static void draw_frame(void)
         text_c(1, h, C_BARTEXT);
     }
     tiny_text(318 - tiny_width(VERSION), 3, VERSION, C_DIM);
+    if (filters[filt] >= 0) {                    /* the F4 filter, as the game's own chip */
+        const char *c = hw_list[filters[filt]].chip;
+        fill(14, 1, tiny_width(c) + 4, 8, hw_list[filters[filt]].col);
+        tiny_text(16, 2, c, C_HITEXT);
+    }
     fill(0, 190, 320, 10, C_BAR);
     text_c(191, L(coll ? S_FOOTER_C : S_FOOTER), C_BARTEXT);
 }
@@ -697,21 +719,21 @@ static void help(void)
     static const struct { const char *key; int id; } rows[] = {
         { "\x18 \x19", S_H_MOVE }, { "PgUp PgDn", S_H_PAGE }, { "Home End", S_H_ENDS },
         { "A-Z", S_H_JUMP }, { "ENTER", S_H_INST }, { "F3 SPACE", S_H_INFO }, { "F2", -1 },
-        { "F10", S_H_LANG }, { "F12", S_H_ABOUT }, { "ESC", S_H_QUIT } };
+        { "F4", S_H_FILTER }, { "F10", S_H_LANG }, { "F12", S_H_ABOUT }, { "ESC", S_H_QUIT } };
     char lines[5][41];
-    int i, n, y = 36;
+    int i, n, y = 33;
     fill(0, 10, 320, 180, C_BG);
     dialog(4, 14, 312, 172);
     text_c(22, L(S_HELP), C_TITLE);
-    for (i = 0; i < 10; i++, y += 9) {
+    for (i = 0; i < 11; i++, y += 9) {
         int id = rows[i].id >= 0 ? rows[i].id : coll ? S_H_F2C : S_H_F2D;
         text(16, y, rows[i].key, C_FIELDTX, -1, 10);
         text(96, y, L(id), C_TEXT, -1, 27);
     }
-    y += 6;
+    y += 3;
     n = wrap(L(S_H_NOTE), 36, lines, 4);
     for (i = 0; i < n; i++, y += 9) text(16, y, lines[i], C_DIM, -1, 36);
-    text_c(172, L(S_PRESS), C_DIM);
+    text_c(174, L(S_PRESS), C_DIM);
     getkey();
 }
 
@@ -1296,8 +1318,8 @@ static void redraw(int top, int sel)
 {
     draw_frame();
     draw_list(top, sel);
-    draw_shot(&games[sel]);
-    draw_info(&games[sel]);
+    draw_shot(&games[view[sel]]);
+    draw_info(&games[view[sel]]);
 }
 
 int main(int argc, char **argv)
@@ -1347,6 +1369,7 @@ int main(int argc, char **argv)
     }
     draw_frame();
     if (coll) add_disc(1);                       /* a new disc in the drive? */
+    build_view();
     redraw(top, sel);
 
     for (;;) {
@@ -1354,42 +1377,64 @@ int main(int argc, char **argv)
         k = getkey();
         if (k == -1 || k == K_ESC) break;
         switch (k) {
-        case K_UP:   if (sel > 0) sel--; break;
-        case K_DOWN: if (sel < ngames - 1) sel++; break;
-        case K_PGUP: sel -= LIST_ROWS; if (sel < 0) sel = 0; break;
-        case K_PGDN: sel += LIST_ROWS; if (sel > ngames - 1) sel = ngames - 1; break;
-        case K_HOME: sel = 0; break;
-        case K_END:  sel = ngames - 1; break;
+        case K_UP:   if (sel > 0) sel--; goto moved;
+        case K_DOWN: if (sel < nview - 1) sel++; goto moved;
+        case K_PGUP: sel -= LIST_ROWS; if (sel < 0) sel = 0; goto moved;
+        case K_PGDN: sel += LIST_ROWS; if (sel > nview - 1) sel = nview - 1; goto moved;
+        case K_HOME: sel = 0; goto moved;
+        case K_END:  sel = nview - 1; goto moved;
         case K_F1:  help(); redraw(top, sel); continue;
         case K_F12: about(); redraw(top, sel); continue;
         case K_F10: lang = !lang; redraw(top, sel); continue;
         case K_F2:
             if (coll) { if (add_disc(0)) { sel = top = 0; } }
             else install_menu();
-            redraw(top, sel);
-            continue;
+            break;
         case K_ENTER:
-            install(&games[sel]);
-            redraw(top, sel);
-            continue;
+            install(&games[view[sel]]);
+            break;
         case K_F3: case ' ':
-            if (info(&games[sel])) install(&games[sel]);
-            redraw(top, sel);
-            continue;
+            if (info(&games[view[sel]])) install(&games[view[sel]]);
+            break;
+        case K_F4: {                             /* next filter that has games; back to all */
+            int was = view[sel];
+            char buf[60];
+            for (;;) {
+                filt = (filt + 1) % (sizeof filters / sizeof filters[0]);
+                if (build_view()) break;
+                sprintf(buf, L(S_NOFILTER), hw_list[filters[filt]].name);
+                message(buf, 0, C_ERR);
+                draw_frame();
+            }
+            for (sel = 0; sel < nview - 1 && view[sel] < was; sel++);   /* stay near the same game */
+            top = sel - LIST_ROWS / 2; if (top < 0) top = 0;
+            break;
+        }
         default:                                  /* letter: jump to the next game starting with it */
             if (k < 128 && isalnum(k)) {
-                for (i = 1; i <= ngames; i++) {
-                    int j = (sel + i) % ngames;
-                    if (toupper(games[j].shrt[0]) == toupper(k)) { sel = j; break; }
+                for (i = 1; i <= nview; i++) {
+                    int j = (sel + i) % nview;
+                    if (toupper(games[view[j]].shrt[0]) == toupper(k)) { sel = j; break; }
                 }
             }
+            goto moved;
         }
+        /* F2, ENTER, F3 and F4 can reload the list (a disc added or updated) or change the filter */
+        if (!build_view()) { filt = 0; build_view(); }
+        if (sel > nview - 1) sel = nview - 1;
+        if (top > nview - LIST_ROWS) top = nview - LIST_ROWS;   /* no empty rows at the end */
+        if (top < 0) top = 0;
+        if (top > sel) top = sel;
+        if (sel >= top + LIST_ROWS) top = sel - LIST_ROWS + 1;
+        redraw(top, sel);
+        continue;
+    moved:
         if (sel < top) top = sel;
         if (sel >= top + LIST_ROWS) top = sel - LIST_ROWS + 1;
         if (sel != old) {
             draw_list(top, sel);
-            draw_shot(&games[sel]);
-            draw_info(&games[sel]);
+            draw_shot(&games[view[sel]]);
+            draw_info(&games[view[sel]]);
         }
     }
     set_mode(0x03);
