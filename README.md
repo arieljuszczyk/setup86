@@ -81,6 +81,9 @@ It runs on anything from an 8086 with VGA to a Pentium, with DOS 3.3 or later.
 
 <table>
   <tr>
+    <td colspan="2" align="center"><img src="docs/screenshots/menu-midi.png" width="50%" alt="The menu with Dune 2 - The Building of a Dynasty selected: a screenshot of the game, 1992, Strategy, Spanish, 20.8 MB, and the chips MT-32 and Sound Canvas" /><br><sub>Got a Roland MT-32 or a Sound Canvas? The chips show which games use it.</sub></td>
+  </tr>
+  <tr>
     <td width="50%"><img src="docs/screenshots/menu2.png" alt="The menu with King's Quest VI selected: a screenshot of the island beach, 1992, Adventure, Spanish, 16.3 MB, and the chips MT-32, Sound Canvas and GUS" /><br><sub>Every game with its screenshot, year, genre, language, size and what it supports.</sub></td>
     <td width="50%"><img src="docs/screenshots/info.png" alt="Info screen for King's Quest VI: 1992, Adventure, the chips MT-32, Sound Canvas and GUS, and a short description of the game" /><br><sub><b>F3</b>: what the game supports and a short description.</sub></td>
   </tr>
