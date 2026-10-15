@@ -11,9 +11,10 @@
  *    for the right disc (found by its \SETUP86.ID) before copying. F2 (or a new
  *    disc found at start) adds the disc in the CD drive to the list.
  * Installing a game copies its directory from the disc to a directory the user
- * types.  F3 (or SPACE) shows the game's info screen: its MIDI support and a
- * short description (_MENU\<GAME>.TXT).  F1 shows a help screen, F10 switches
- * English / Spanish, F12 shows the About screen.
+ * types.  F3 (or SPACE) shows the game's info screen: what it supports (MT-32,
+ * Sound Canvas, Gravis Ultrasound, 3dfx) and a short description
+ * (_MENU\<GAME>.TXT).  F1 shows a help screen, F10 switches English / Spanish,
+ * F12 shows the About screen.
  *
  * Build (OpenWatcom 2): wcl -q -w4 -bt=dos -ml -0 -os -k12288 -fe=MENU.EXE menu.c
  *
@@ -61,12 +62,17 @@ typedef struct {
     char far *title, far *shrt, far *year, far *genre, far *genre_es, far *lang;
     unsigned long size;
     unsigned char vi;           /* installed mode: index in vols[] */
-    unsigned char sound;        /* SND_MT32 | SND_SC55 */
+    unsigned char hw;           /* HW_*: what the game supports */
     unsigned char desc;         /* has _MENU\<GAME>.TXT */
     int nrun;
     char far *run[MAXRUN];
 } Game;
-enum { SND_MT32 = 1, SND_SC55 = 2 };
+/* what a game supports (MENU.DAT's SUPPORTS line): the tag there, a short name for the
+ * chips on the screenshot (tiny font), the full one for the info screen */
+#define NHW 4
+static const struct { const char *tag, *chip, *name; int col; } hw_list[NHW] = {
+    { "MT-32", "MT-32", "MT-32", C_OK }, { "SC-55", "SOUND CANVAS", "Sound Canvas", C_OK },
+    { "GUS", "GUS", "GUS", C_OK }, { "3DFX", "3DFX", "3dfx", C_HILITE } };     /* sound green, video blue */
 
 /* ---------- screen texts: English / Spanish (CP437, the VGA font's own accents) ---------- */
 enum { S_HEADER, S_FOOTER, S_NOPIC, S_SPANISH, S_ENGLISH, S_PRESS, S_WHERE, S_OKCANCEL, S_BADPATH, S_NODRIVE, S_NEEDS, S_NOSPACE, S_NOMKDIR, S_HASFILES, S_OVERWRITE, S_NOMEM, S_COPYING, S_BUFFER, S_FILES, S_ERRREAD, S_ERRCREATE, S_ERRWRITE, S_STOPPED, S_INCOMPLETE, S_INSTALLED, S_INFILES, S_TOPLAY, S_HELP, S_H_MOVE, S_H_PAGE, S_H_ENDS, S_H_JUMP, S_H_INST, S_H_HELP, S_H_LANG, S_H_QUIT, S_H_NOTE,
@@ -326,13 +332,15 @@ static void text(int x, int y, const char far *s, int fg, int bg, int max)
     }
 }
 
-/* tiny 3x5 font: the version number at the top right ("v1.2.3"), the MIDI tags ("MT-32") */
-static const char tiny_chars[] = "0123456789.vMTSC-";
-static const unsigned char tiny[17][5] = {       /* 3 bits per row, MSB = left */
+/* tiny 3x5 font: the version number at the top right ("v1.2.3"), the chips ("MT-32") */
+static const char tiny_chars[] = "0123456789.vMTSC-AODFGNUVX";
+static const unsigned char tiny[26][5] = {       /* 3 bits per row, MSB = left */
     {7,5,5,5,7}, {2,6,2,2,7}, {7,1,7,4,7}, {7,1,7,1,7}, {5,5,7,1,1},
     {7,4,7,1,7}, {7,4,7,5,7}, {7,1,1,1,1}, {7,5,7,5,7}, {7,5,7,1,7},
     {0,0,0,0,2}, {0,5,5,5,2}, {5,7,7,5,5}, {7,2,2,2,2}, {7,4,7,1,7},
-    {7,4,4,4,7}, {0,0,7,0,0} };
+    {7,4,4,4,7}, {0,0,7,0,0}, {2,5,7,5,5}, {7,5,5,5,7}, {6,5,5,5,6},
+    {7,4,6,4,4}, {7,4,5,5,7}, {6,5,5,5,5}, {5,5,5,5,7}, {5,5,5,5,2},
+    {5,5,2,5,5} };
 
 static int tiny_width(const char *s)
 {
@@ -471,8 +479,10 @@ static int load_file(const char *fn, int vi, Vol *hdr)
         else if (!strcmp(line, "LANG")) g->lang = fdup(v);
         else if (!strcmp(line, "SIZE")) g->size = strtoul(v, 0, 10);
         else if (!strcmp(line, "SHOT")) _fstrncpy(g->shot, v, 8);
-        else if (!strcmp(line, "SOUND"))
-            g->sound = (strstr(v, "MT-32") ? SND_MT32 : 0) | (strstr(v, "SC-55") ? SND_SC55 : 0);
+        else if (!strcmp(line, "SUPPORTS") || !strcmp(line, "SOUND")) {   /* SOUND: v1.3.0 discs */
+            int i;
+            for (i = 0; i < NHW; i++) if (strstr(v, hw_list[i].tag)) g->hw |= 1 << i;
+        }
         else if (!strcmp(line, "DESC")) g->desc = 1;
         else if (!strcmp(line, "RUN") && g->nrun < MAXRUN) g->run[g->nrun++] = fdup(v);
     }
@@ -594,10 +604,18 @@ static int wrap(const char far *s, int w, char out[][41], int maxl)
     return n;
 }
 
-static void tag(int x, int y, const char *s)        /* 23 x 8: tiny text on a green chip */
+/* what the game supports: chips in the tiny font along the bottom of the screenshot */
+static void draw_chips(Game far *g)
 {
-    fill(x, y, 23, 8, C_OK);
-    tiny_text(x + 2, y + 1, s, C_HITEXT);
+    int i, x = SHOT_X + SHOT_W - 1, y = SHOT_Y + SHOT_H - 9;
+    for (i = NHW - 1; i >= 0; i--)
+        if (g->hw & (1 << i)) {
+            int w = tiny_width(hw_list[i].chip) + 4;
+            x -= w;
+            fill(x, y, w, 8, hw_list[i].col);
+            tiny_text(x + 2, y + 1, hw_list[i].chip, C_HITEXT);
+            x -= 2;
+        }
 }
 
 static void draw_info(Game far *g)
@@ -616,11 +634,7 @@ static void draw_info(Game far *g)
     sprintf(buf, "%s, %lu.%lu MB", (g->lang && g->lang[0] == 'S') ? L(S_SPANISH) : L(S_ENGLISH),
             g->size / 1000000UL, (g->size / 100000UL) % 10);
     text(SHOT_X, y, buf, C_DIM, -1, 24);
-    {   /* MIDI support: tags at the right of that line */
-        int x = SHOT_X + SHOT_W;
-        if (g->sound & SND_SC55) { x -= 23; tag(x, y, "SC-55"); x -= 2; }
-        if (g->sound & SND_MT32) { x -= 23; tag(x, y, "MT-32"); }
-    }
+    draw_chips(g);
     if (coll) {
         sprintf(buf, L(S_DISCLINE), vols[g->vi].set, vols[g->vi].vol);
         text(SHOT_X, y + 9, buf, C_TITLE, -1, 24);
@@ -720,7 +734,7 @@ static void about(void)
     getkey();
 }
 
-/* the game's info screen (F3): title, year, genre, MIDI support and its description
+/* the game's info screen (F3): title, year, genre, what it supports and its description
  * (_MENU\<GAME>.TXT, one line that setup86.py already cut to DESC_LINES x DESC_W);
  * returns 1 when ENTER asks to install it */
 #define DESC_W     37
@@ -744,11 +758,13 @@ static int info(Game far *g)
         sprintf(buf + strlen(buf), L(S_DISCLINE), vols[g->vi].set, vols[g->vi].vol);
     }
     text(12, 52, buf, C_DIM, -1, DESC_W);
-    if (g->sound) {
-        sprintf(buf, "MIDI: %s%s%s", g->sound & SND_MT32 ? "Roland MT-32" : "",
-                g->sound == (SND_MT32 | SND_SC55) ? ", " : "", g->sound & SND_SC55 ? "Sound Canvas" : "");
-        text(12, 61, buf, C_OK, -1, DESC_W);
-    }
+    for (i = 0, k = 12; i < NHW; i++)                     /* what it supports: chips */
+        if (g->hw & (1 << i)) {
+            int w = 8 * strlen(hw_list[i].name) + 6;
+            fill(k, 60, w, 10, hw_list[i].col);
+            text(k + 3, 61, hw_list[i].name, C_HITEXT, -1, 20);
+            k += w + 4;
+        }
     desc[0] = 0;
     if (g->desc) {
         if (coll) sprintf(buf, "%s_MENU\\V%03d\\%Fs.TXT", base, g->vi + 1, (char far *)g->dir);

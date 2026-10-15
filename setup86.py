@@ -914,13 +914,20 @@ EXODIUM_DB = os.path.join(exodium_dir(), 'exodium.db')
 
 _INFO = None
 
-SOUND_LISTS = (('Games with MT-32', 'MT-32'), ('Games with Sound Canvas', 'SC-55'))   # eXo's playlists
-SOUND_NAMES = {'MT-32': 'Roland MT-32', 'SC-55': 'Roland Sound Canvas (SC-55)'}
+# eXo marks what a game supports in its Series field ("Playlist: Roland MT-32; ..."); its playlists
+# (and Exodium's) are filters on those. Ours: series name -> the tag in MENU.DAT's SUPPORTS line.
+HW_TAGS = (('Roland MT-32', 'MT-32'), ('Sound Canvas', 'SC-55'), ('Gravis Ultrasound', 'GUS'), ('3DFX', '3DFX'))
+HW_NAMES = {'MT-32': 'Roland MT-32', 'SC-55': 'Sound Canvas', 'GUS': 'Gravis Ultrasound', '3DFX': '3dfx'}
+
+def hw_tags(series):
+    """The HW_TAGS tags in eXo's Series field, e.g. ['MT-32', 'SC-55']."""
+    have = {m.strip().lower() for m in re.findall(r'Playlist: *([^;]+)', series or '')}
+    return [t for name, t in HW_TAGS if name.lower() in have]
 
 def exodium_info():
-    """shortcode (lowercase) -> dict(name, year, genre, thumb, title, desc, sound) from Exodium's
+    """shortcode (lowercase) -> dict(name, year, genre, thumb, title, desc, hw) from Exodium's
     database (read-only). name = eXo's file name for the game, e.g. 'Secret of Monkey Island, The (1990)';
-    sound = the SOUND_LISTS tags of eXo's playlists the game is in, e.g. ['MT-32', 'SC-55']."""
+    hw = what it supports (hw_tags), e.g. ['MT-32', 'GUS']."""
     global _INFO
     if _INFO is None:
         import sqlite3
@@ -928,20 +935,12 @@ def exodium_info():
         if os.path.isfile(EXODIUM_DB):
             db = sqlite3.connect('file:%s?mode=ro' % EXODIUM_DB, uri=True)
             try:
-                sound = {}
-                try:
-                    for gid, pl in db.execute("SELECT g.game_id, p.name FROM playlist_games g "
-                                              "JOIN playlists p ON p.id = g.playlist_id"):
-                        sound.setdefault(gid, set()).add(pl)
-                except sqlite3.Error:                     # an Exodium without playlists
-                    pass
-                for gid, sc, app, year, genre, thumb, title, desc in db.execute(
-                        "SELECT id, shortcode, application_path, year, genre, thumbnail_key, title, description "
+                for sc, app, year, genre, thumb, title, desc, series in db.execute(
+                        "SELECT shortcode, application_path, year, genre, thumbnail_key, title, description, series "
                         "FROM games WHERE language = 'EN' AND shortcode IS NOT NULL"):
                     name = os.path.splitext((app or '').replace('\\', '/').split('/')[-1])[0]
                     _INFO[sc.lower()] = dict(name=name, year=year, genre=genre or '', thumb=thumb, title=title or '',
-                                             desc=desc or '',
-                                             sound=[t for pl, t in SOUND_LISTS if pl in sound.get(gid, ())])
+                                             desc=desc or '', hw=hw_tags(series))
             finally:
                 db.close()
         if not _INFO and XML_PATH and os.path.isfile(XML_PATH):
@@ -965,7 +964,7 @@ def launchbox_info(path):
             sc = root.rstrip('/').split('/')[-1]
             out[sc.lower()] = dict(name=os.path.splitext(app.split('/')[-1])[0], year=f('ReleaseDate')[:4],
                                    genre=f('Genre'), thumb=None, title=f('Title'), lbid=f('ID'),
-                                   desc=f('Notes'), sound=[])
+                                   desc=f('Notes'), hw=hw_tags(f('Series')))
         el.clear()
     return out
 
@@ -1204,8 +1203,8 @@ def write_gui(root, label, dk, series, vol, build):
                   'GENRE ' + genre_line(genre, GENRE_EN), 'GENRE_ES ' + genre_line(genre, GENRE_ES),
                   'LANG ' + ('Spanish' if LANG.get(g) == 'es' else 'English'),
                   'SIZE %d' % gm['size']]
-        if info.get('sound'):
-            lines.append('SOUND ' + ' '.join(info['sound']))
+        if info.get('hw'):
+            lines.append('SUPPORTS ' + ' '.join(info['hw']))
         if info.get('desc'):                          # read when the info screen (F3) opens
             with open(os.path.join(mdir, GU + '.TXT'), 'wb') as f:
                 f.write(brief(info['desc']).encode('cp437', 'replace') + b'\r\n')
@@ -1284,7 +1283,7 @@ def game_def(g, warn):
 
 def catalog(src, data=None, progress=None):
     """Every installed game, for a front end: list of dicts g (folder), title, year, genre, lang ('en'/'es'),
-    sound ('MT-32 SC-55', or ''), size (bytes on the disc, measured without writing anything), status and note.
+    hw ('MT-32, Sound Canvas', or ''), size (bytes on the disc, measured without writing anything), status and note.
     status: 'ok', 'nocd' (eXo mounts its CD but it runs without it), 'music' (same, music is CD audio),
     'cd' (needs its own CD), 'fan', 'port', 'error' (can't go on a disc: note says why)."""
     global DRY
@@ -1302,7 +1301,7 @@ def catalog(src, data=None, progress=None):
                 progress(i, len(names), g)
             info = exodium_info().get(g.lower(), {})
             r = dict(g=g, title=info.get('title') or g, year=str(info.get('year') or ''), genre=info.get('genre') or '',
-                     lang=LANG.get(g, 'en'), size=0, status='ok', note='', sound=' '.join(info.get('sound') or ()))
+                     lang=LANG.get(g, 'en'), size=0, status='ok', note='', hw=', '.join(HW_NAMES[t] for t in info.get('hw') or ()))
             if g in fan_games or g in ports:
                 r.update(status='fan' if g in fan_games else 'port',
                          note='fan-made game' if g in fan_games else 'modern port, not a DOS release')
@@ -1510,9 +1509,9 @@ def main(argv=None):
             lines.append('%-9s %s  [%.1f MB]' % (gm['g'], gm['d']['title'].encode('ascii', 'replace').decode(),
                                                  gm['size'] / 1e6))
             lines.append('    copy \\%s to C:\\%s' % (gm['GU'], gm['GU']))
-            snd = exodium_info().get(gm['g'].lower(), {}).get('sound')
-            if snd:
-                lines.append('    sound: ' + ', '.join(SOUND_NAMES[t] for t in snd))
+            hw = exodium_info().get(gm['g'].lower(), {}).get('hw')
+            if hw:
+                lines.append('    supports: ' + ', '.join(HW_NAMES[t] for t in hw))
             lines += ['    ' + remap(h, gm) for h in howto(gm['g'], gm['d'])]
         write_menu(root, n, dk, a.series)
         note = write_gui(root, 'Setup86 %s %d' % (a.series, n), dk, a.series, n, build)
