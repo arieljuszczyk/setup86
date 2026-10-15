@@ -349,6 +349,7 @@ hardlinks, so they take real space.
 - **Build**: unpack OpenWatcom's `ow-snapshot.tar.xz` into `~/.local/opt/openwatcom`, then run `WATCOM=~/.local/opt/openwatcom PATH=$WATCOM/binl64:$PATH INCLUDE=$WATCOM/h wcl -q -w4 -bt=dos -ml -0 -os -k12288 -fe=MENU.EXE menu.c`.
 - **Test**: `MENU /T:KEYS.TXT` reads keys from a file (`UP DOWN ENTER ESC SPACE F1 F2 F3 F10 F12 SHOT TEXT:abc`...). `SHOT` dumps the screen to `SHOTnn.BIN` (768-byte palette + 64000 pixels). It runs headless in Exodium's `dosbox-staging` (`SDL_VIDEODRIVER=dummy`), with the ISO mounted via `imgmount d X.ISO -t iso`.
 - **Try a disc on this PC**: `./dosbox-test.sh [ISO] [C-folder]`. It mounts the ISO as `D:` and a folder (default `~/eXoDOS/dosbox-c`, kept between runs) as `C:` in Exodium's `dosbox-staging`, then starts the menu. Without arguments it tries `isos/SETUP86-VOLUME-01.ISO`. Ctrl+F10 frees the mouse; Ctrl+F9 or `exit` quits DOSBox.
+- **Try the whole collection**: `./dosbox-test.sh all [ISO folder] [C-folder]` sets up `C:\SETUP86` as if the menu had been installed on the hard disk from every `SETUP86-*.ISO` in the folder (default `isos/`, or the folder written in a git-ignored `.isos-dir` file, e.g. a NAS share), mounts all the ISOs as `D:` and starts the menu with every game listed. When it asks for another disc, Ctrl+F4 switches to the next ISO.
 
 </details>
 
