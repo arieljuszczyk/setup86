@@ -530,7 +530,8 @@ def read_autoexec(g):
 def auto_def(g, warn):
     src = game_src(g)
     ae = read_autoexec(g)
-    d = dict(title=next((os.path.splitext(f)[0] for f in os.listdir(src) if f.endswith('.exo')), g), auto=True)
+    d = dict(title=next((os.path.splitext(f)[0] for f in os.listdir(src) if f.endswith('.exo')), None)
+             or exodium_info().get(g.lower(), {}).get('name') or g, auto=True)   # no .exo: eXo's name
     if any(re.match(r'@?boot\b', l, re.I) for l in ae):
         raise RuntimeError('self-booting disk game (eXo uses BOOT), cannot run from DOS: write its disk image to a floppy')
     mount = next((l for l in ae if re.match(r'@?mount\s+c\s', l, re.I)), None)
