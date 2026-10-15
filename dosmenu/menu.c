@@ -33,7 +33,7 @@
 #include <direct.h>
 #include <sys/stat.h>
 
-#define VERSION   "v1.2.0"      /* shown at the right of the top bar; the release tag */
+#define VERSION   "v1.2.1"      /* shown at the right of the top bar; the release tag */
 #define MAXGAMES  400
 #define MAXRUN    12
 #define SHOT_W    192
