@@ -22,7 +22,7 @@ new games don't reshuffle what's already burned.
 """
 import os, re, sys, shutil, base64, time, tempfile
 
-VERSION = '1.2.1'  # the release; MENU.EXE shows it too (VERSION in dosmenu/menu.c)
+VERSION = '1.3.0'  # the release; MENU.EXE shows it too (VERSION in dosmenu/menu.c)
 SRC = OUT = None   # set in main()
 LANG = {}          # game -> 'es' when the Spanish version is used (set in main)
 
@@ -914,9 +914,13 @@ EXODIUM_DB = os.path.join(exodium_dir(), 'exodium.db')
 
 _INFO = None
 
+SOUND_LISTS = (('Games with MT-32', 'MT-32'), ('Games with Sound Canvas', 'SC-55'))   # eXo's playlists
+SOUND_NAMES = {'MT-32': 'Roland MT-32', 'SC-55': 'Roland Sound Canvas (SC-55)'}
+
 def exodium_info():
-    """shortcode (lowercase) -> dict(name, year, genre, thumb) from Exodium's database (read-only).
-    name = eXo's file name for the game, e.g. 'Secret of Monkey Island, The (1990)'."""
+    """shortcode (lowercase) -> dict(name, year, genre, thumb, title, desc, sound) from Exodium's
+    database (read-only). name = eXo's file name for the game, e.g. 'Secret of Monkey Island, The (1990)';
+    sound = the SOUND_LISTS tags of eXo's playlists the game is in, e.g. ['MT-32', 'SC-55']."""
     global _INFO
     if _INFO is None:
         import sqlite3
@@ -924,11 +928,20 @@ def exodium_info():
         if os.path.isfile(EXODIUM_DB):
             db = sqlite3.connect('file:%s?mode=ro' % EXODIUM_DB, uri=True)
             try:
-                for sc, app, year, genre, thumb, title in db.execute(
-                        "SELECT shortcode, application_path, year, genre, thumbnail_key, title FROM games "
-                        "WHERE language = 'EN' AND shortcode IS NOT NULL"):
+                sound = {}
+                try:
+                    for gid, pl in db.execute("SELECT g.game_id, p.name FROM playlist_games g "
+                                              "JOIN playlists p ON p.id = g.playlist_id"):
+                        sound.setdefault(gid, set()).add(pl)
+                except sqlite3.Error:                     # an Exodium without playlists
+                    pass
+                for gid, sc, app, year, genre, thumb, title, desc in db.execute(
+                        "SELECT id, shortcode, application_path, year, genre, thumbnail_key, title, description "
+                        "FROM games WHERE language = 'EN' AND shortcode IS NOT NULL"):
                     name = os.path.splitext((app or '').replace('\\', '/').split('/')[-1])[0]
-                    _INFO[sc.lower()] = dict(name=name, year=year, genre=genre or '', thumb=thumb, title=title or '')
+                    _INFO[sc.lower()] = dict(name=name, year=year, genre=genre or '', thumb=thumb, title=title or '',
+                                             desc=desc or '',
+                                             sound=[t for pl, t in SOUND_LISTS if pl in sound.get(gid, ())])
             finally:
                 db.close()
         if not _INFO and XML_PATH and os.path.isfile(XML_PATH):
@@ -951,7 +964,8 @@ def launchbox_info(path):
         if '/!dos/' in root.lower() and '/!spanish/' not in root.lower():
             sc = root.rstrip('/').split('/')[-1]
             out[sc.lower()] = dict(name=os.path.splitext(app.split('/')[-1])[0], year=f('ReleaseDate')[:4],
-                                   genre=f('Genre'), thumb=None, title=f('Title'), lbid=f('ID'))
+                                   genre=f('Genre'), thumb=None, title=f('Title'), lbid=f('ID'),
+                                   desc=f('Notes'), sound=[])
         el.clear()
     return out
 
@@ -1124,6 +1138,31 @@ def list_name(title, w=15):
         t = t.replace("'", '')
     return t if len(t) <= w else t[:w - 1].rstrip() + '~'
 
+DESC_W, DESC_LINES = 37, 10       # MENU.EXE's info screen (F3): the description's box
+
+def brief(text, w=DESC_W, lines=DESC_LINES):
+    """The start of a description that fits the info screen, wrapped as MENU.EXE wraps it:
+    whole sentences, or cut at a word with '...' when even the first one is too long. CP437 text."""
+    import textwrap, unicodedata
+    for a, b in (('‘', "'"), ('’', "'"), ('“', '"'), ('”', '"'), ('–', '-'),
+                 ('—', '-'), ('…', '...'), (' ', ' ')):
+        text = text.replace(a, b)
+    # characters the VGA font lacks: their accent-less letter, else '?'
+    text = ''.join(c if c.encode('cp437', 'ignore') else
+                   (unicodedata.normalize('NFKD', c).encode('ascii', 'ignore').decode() or '?') for c in text)
+    text = ' '.join(text.split())
+    fits = lambda t: len(textwrap.wrap(t, w, break_long_words=True, break_on_hyphens=False)) <= lines
+    if fits(text):
+        return text
+    ends = [m.end() for m in re.finditer(r'[.!?]["\')]?(?= )', text)]
+    best = max((e for e in ends if fits(text[:e])), default=0)
+    if best:
+        return text[:best]
+    words = text.split(' ')
+    while words and not fits(' '.join(words) + '...'):
+        words.pop()
+    return ' '.join(words) + '...'
+
 def write_gui(root, label, dk, series, vol, build):
     """MENU.EXE (+ the same program as INSTALL.EXE) + _MENU\\MENU.DAT + one _MENU\\<GAME>.PIC
     per game + \\SETUP86.ID, which tells an installed menu which disc this is."""
@@ -1165,6 +1204,12 @@ def write_gui(root, label, dk, series, vol, build):
                   'GENRE ' + genre_line(genre, GENRE_EN), 'GENRE_ES ' + genre_line(genre, GENRE_ES),
                   'LANG ' + ('Spanish' if LANG.get(g) == 'es' else 'English'),
                   'SIZE %d' % gm['size']]
+        if info.get('sound'):
+            lines.append('SOUND ' + ' '.join(info['sound']))
+        if info.get('desc'):                          # read when the info screen (F3) opens
+            with open(os.path.join(mdir, GU + '.TXT'), 'wb') as f:
+                f.write(brief(info['desc']).encode('cp437', 'replace') + b'\r\n')
+            lines.append('DESC')
         im = screenshot(g)
         if im is not None:
             with open(os.path.join(mdir, GU + '.PIC'), 'wb') as f:
@@ -1239,7 +1284,7 @@ def game_def(g, warn):
 
 def catalog(src, data=None, progress=None):
     """Every installed game, for a front end: list of dicts g (folder), title, year, genre, lang ('en'/'es'),
-    size (bytes on the disc, measured without writing anything), status and note.
+    sound ('MT-32 SC-55', or ''), size (bytes on the disc, measured without writing anything), status and note.
     status: 'ok', 'nocd' (eXo mounts its CD but it runs without it), 'music' (same, music is CD audio),
     'cd' (needs its own CD), 'fan', 'port', 'error' (can't go on a disc: note says why)."""
     global DRY
@@ -1257,7 +1302,7 @@ def catalog(src, data=None, progress=None):
                 progress(i, len(names), g)
             info = exodium_info().get(g.lower(), {})
             r = dict(g=g, title=info.get('title') or g, year=str(info.get('year') or ''), genre=info.get('genre') or '',
-                     lang=LANG.get(g, 'en'), size=0, status='ok', note='')
+                     lang=LANG.get(g, 'en'), size=0, status='ok', note='', sound=' '.join(info.get('sound') or ()))
             if g in fan_games or g in ports:
                 r.update(status='fan' if g in fan_games else 'port',
                          note='fan-made game' if g in fan_games else 'modern port, not a DOS release')
@@ -1465,6 +1510,9 @@ def main(argv=None):
             lines.append('%-9s %s  [%.1f MB]' % (gm['g'], gm['d']['title'].encode('ascii', 'replace').decode(),
                                                  gm['size'] / 1e6))
             lines.append('    copy \\%s to C:\\%s' % (gm['GU'], gm['GU']))
+            snd = exodium_info().get(gm['g'].lower(), {}).get('sound')
+            if snd:
+                lines.append('    sound: ' + ', '.join(SOUND_NAMES[t] for t in snd))
             lines += ['    ' + remap(h, gm) for h in howto(gm['g'], gm['d'])]
         write_menu(root, n, dk, a.series)
         note = write_gui(root, 'Setup86 %s %d' % (a.series, n), dk, a.series, n, build)

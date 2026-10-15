@@ -43,7 +43,7 @@ and several copies of its sound setup. A Setup86 disc keeps the original files, 
 | On the CD | What it is |
 |---|---|
 | `\DOOM\`, `\KQ6CD\`, ... | each game's own DOS files, with 8.3 names, ready to copy to `C:` |
-| `MENU.EXE` | the VGA menu: a screenshot, year, genre, language and size for each game. **Enter** installs a game after checking the free space and tells you how to start it. **F10** switches between English and Spanish |
+| `MENU.EXE` | the VGA menu: a screenshot, year, genre, language, size and MIDI support (MT-32, Sound Canvas) for each game, and a short description with **F3**. **Enter** installs a game after checking the free space and tells you how to start it. **F10** switches between English and Spanish |
 | `INSTALL.EXE` | puts the menu on the hard disk (`C:\SETUP86`), where every disc you add shows up in one list and the menu asks for the right volume |
 | `TXTMENU.BAT` | a text-mode menu for PCs without VGA |
 | `SETUP86.ID` | tells the hard-disk menu which volume the disc is |
@@ -154,6 +154,7 @@ as `C:`, then starts the menu. Then burn it with any CD burning app (K3b, Braser
 | ↑ ↓, PgUp PgDn, Home End | Move through the list |
 | A-Z | Jump to the next game starting with that letter |
 | Enter | Install the game (default `C:\GAMES\<GAME>`) |
+| F3 or Space | Game info: MIDI support (Roland MT-32, Sound Canvas) and a short description |
 | F1 | Help |
 | F2 | Install the menu to the hard disk (`C:\SETUP86`), with all your discs in one list |
 | F10 | English / Español |
@@ -294,7 +295,8 @@ hardlinks, so they take real space.
 <summary><b>The menu (MENU.EXE) in detail</b></summary>
 
 - **On the DOS PC**: from the CD drive (`D:`) run `MENU`. It needs VGA (any CPU, DOS 3.3+).
-  - **Screen**: the game list on the left, and a screenshot, title, year, genre, language and size on the right.
+  - **Screen**: the game list on the left, and a screenshot, title, year, genre, language and size on the right. Green **MT-32** / **SC-55** tags mark games with Roland MT-32 or Sound Canvas (SC-55) music, from eXo's "Games with MT-32" and "Games with Sound Canvas" playlists in Exodium's database.
+  - **F3** (or Space) shows the game's info screen: year, genre, MIDI support and a short description (Exodium's, cut to whole sentences that fit; `_MENU\<GAME>.TXT`). Enter there installs it.
   - **Keys**: arrows, PgUp/PgDn, Home/End, or a letter to jump to the next game with that initial.
   - **F1** shows a help screen. **F10** switches every screen between English and Spanish: header, help, dialogs, language and genre (`GENRE_ES` in `MENU.DAT`). Accents use the VGA font's own CP437 characters. Game titles and play commands aren't translated.
   - **F12** shows the About screen: credits, the GitHub page, the license and the Ko-fi link. It needs a 101-key keyboard; older 84-key keyboards have no F12.
@@ -336,7 +338,7 @@ hardlinks, so they take real space.
 
 - **Source**: `dosmenu/menu.c`, C for OpenWatcom 2 (16-bit real mode, mode 13h). The built `dosmenu/MENU.EXE` is committed and copied onto each disc.
 - **Build**: unpack OpenWatcom's `ow-snapshot.tar.xz` into `~/.local/opt/openwatcom`, then run `WATCOM=~/.local/opt/openwatcom PATH=$WATCOM/binl64:$PATH INCLUDE=$WATCOM/h wcl -q -w4 -bt=dos -ml -0 -os -k12288 -fe=MENU.EXE menu.c`.
-- **Test**: `MENU /T:KEYS.TXT` reads keys from a file (`UP DOWN ENTER ESC F1 F2 F10 F12 SHOT TEXT:abc`...). `SHOT` dumps the screen to `SHOTnn.BIN` (768-byte palette + 64000 pixels). It runs headless in Exodium's `dosbox-staging` (`SDL_VIDEODRIVER=dummy`), with the ISO mounted via `imgmount d X.ISO -t iso`.
+- **Test**: `MENU /T:KEYS.TXT` reads keys from a file (`UP DOWN ENTER ESC SPACE F1 F2 F3 F10 F12 SHOT TEXT:abc`...). `SHOT` dumps the screen to `SHOTnn.BIN` (768-byte palette + 64000 pixels). It runs headless in Exodium's `dosbox-staging` (`SDL_VIDEODRIVER=dummy`), with the ISO mounted via `imgmount d X.ISO -t iso`.
 - **Try a disc on this PC**: `./dosbox-test.sh [ISO] [C-folder]`. It mounts the ISO as `D:` and a folder (default `~/eXoDOS/dosbox-c`, kept between runs) as `C:` in Exodium's `dosbox-staging`, then starts the menu. Without arguments it tries `isos/SETUP86-VOLUME-01.ISO`. Ctrl+F10 frees the mouse; Ctrl+F9 or `exit` quits DOSBox.
 
 </details>

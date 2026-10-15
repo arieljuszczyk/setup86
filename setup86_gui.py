@@ -229,7 +229,7 @@ class App(tk.Tk):
         self.genre_box.pack(side='left', padx=4)
         self.genre_box.bind('<<ComboboxSelected>>', lambda e: self.refresh_left())
         self.left = self.make_tree(left, (('year', 'Year', 50), ('genre', 'Genre', 150), ('lang', 'Lang', 45),
-                                          ('size', 'MB', 60), ('status', 'Note', 150)))
+                                          ('sound', 'MIDI', 85), ('size', 'MB', 60), ('status', 'Note', 150)))
         self.left.tag_configure('off', foreground=C['dim'])
         self.left.tag_configure('used', foreground=C['prog'])
         self.left.bind('<Double-1>', lambda e: self.add())
@@ -369,7 +369,7 @@ class App(tk.Tk):
             note = r['note']
         if r['g'].lower() in self.on_disc:
             note = ('on ' + self.on_disc[r['g'].lower()] + ('; ' + note if note else ''))
-        return (r['year'], r['genre'].replace(';', ','), r['lang'].upper(), size, note)
+        return (r['year'], r['genre'].replace(';', ','), r['lang'].upper(), r.get('sound', ''), size, note)
 
     def game_title(self, r):
         return r['title'] + (' (ES)' if r['lang'] == 'es' else '')

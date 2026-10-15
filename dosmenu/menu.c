@@ -11,13 +11,15 @@
  *    for the right disc (found by its \SETUP86.ID) before copying. F2 (or a new
  *    disc found at start) adds the disc in the CD drive to the list.
  * Installing a game copies its directory from the disc to a directory the user
- * types.  F1 shows a help screen, F10 switches English / Spanish, F12 shows
- * the About screen.
+ * types.  F3 (or SPACE) shows the game's info screen: its MIDI support and a
+ * short description (_MENU\<GAME>.TXT).  F1 shows a help screen, F10 switches
+ * English / Spanish, F12 shows the About screen.
  *
  * Build (OpenWatcom 2): wcl -q -w4 -bt=dos -ml -0 -os -k12288 -fe=MENU.EXE menu.c
  *
  * Test hook: MENU /T:<file> reads the keys from <file> instead of the
- * keyboard (UP DOWN PGUP PGDN HOME END ENTER ESC BKSP F1 F2 F10 F12 SHOT TEXT:<chars>);
+ * keyboard (UP DOWN PGUP PGDN HOME END ENTER ESC BKSP SPACE F1 F2 F3 F10 F12 SHOT
+ * TEXT:<chars>);
  * SHOT dumps palette + screen to SHOTnn.BIN.  Exits at the end of the file.
  */
 #include <stdio.h>
@@ -33,7 +35,7 @@
 #include <direct.h>
 #include <sys/stat.h>
 
-#define VERSION   "v1.2.1"      /* shown at the right of the top bar; the release tag */
+#define VERSION   "v1.3.0"      /* shown at the right of the top bar; the release tag */
 #define MAXGAMES  400
 #define MAXRUN    12
 #define SHOT_W    192
@@ -59,18 +61,22 @@ typedef struct {
     char far *title, far *shrt, far *year, far *genre, far *genre_es, far *lang;
     unsigned long size;
     unsigned char vi;           /* installed mode: index in vols[] */
+    unsigned char sound;        /* SND_MT32 | SND_SC55 */
+    unsigned char desc;         /* has _MENU\<GAME>.TXT */
     int nrun;
     char far *run[MAXRUN];
 } Game;
+enum { SND_MT32 = 1, SND_SC55 = 2 };
 
 /* ---------- screen texts: English / Spanish (CP437, the VGA font's own accents) ---------- */
 enum { S_HEADER, S_FOOTER, S_NOPIC, S_SPANISH, S_ENGLISH, S_PRESS, S_WHERE, S_OKCANCEL, S_BADPATH, S_NODRIVE, S_NEEDS, S_NOSPACE, S_NOMKDIR, S_HASFILES, S_OVERWRITE, S_NOMEM, S_COPYING, S_BUFFER, S_FILES, S_ERRREAD, S_ERRCREATE, S_ERRWRITE, S_STOPPED, S_INCOMPLETE, S_INSTALLED, S_INFILES, S_TOPLAY, S_HELP, S_H_MOVE, S_H_PAGE, S_H_ENDS, S_H_JUMP, S_H_INST, S_H_HELP, S_H_LANG, S_H_QUIT, S_H_NOTE,
        S_FOOTER_C, S_H_F2D, S_H_F2C, S_MWHERE, S_MDONE, S_MRUN, S_INSERT, S_READY, S_NEWDISC, S_ADDQ,
        S_NEWBUILD, S_UPDQ, S_NODISC, S_ADDED, S_NOTONDISC, S_MCOPYFAIL, S_DISCLINE, S_TOOMANY,
-       S_H_ABOUT, S_ABOUT, S_A_BY, S_A_MADE1, S_A_MADE2, S_A_FREE, S_A_DONATE, S_A_VER, S_COUNT };
+       S_H_ABOUT, S_ABOUT, S_A_BY, S_A_MADE1, S_A_MADE2, S_A_FREE, S_A_DONATE, S_A_VER,
+       S_H_INFO, S_INFOKEYS, S_NODESC, S_COUNT };
 static const char *msgs[2][S_COUNT] = {
     { "SETUP86 COLLECTION",
-      "ENTER Install F1 Help F2 HD ESC Quit",
+      "ENTER Install F1 Help F2 HD F3 Info",
       "(no picture)",
       "Spanish",
       "English",
@@ -106,7 +112,7 @@ static const char *msgs[2][S_COUNT] = {
       "Espa\244ol",
       "Quit",
       "The game is copied to the directory you choose (C:\\GAMES\\<GAME> if you just press ENTER). The last screen shows how to start it.",
-      "ENTER Inst. F1 Help F2 +CD ESC Quit",
+      "ENTER Install F1 Help F2 +CD F3 Info",
       "Install menu to hard disk",
       "Add the CD in the drive",
       "Install the menu in which directory?",
@@ -131,9 +137,12 @@ static const char *msgs[2][S_COUNT] = {
       "to run on real x86 hardware.",
       "Free & open source - MIT License",
       "Please donate to support it:",
-      "Version %s" },
+      "Version %s",
+      "Game info and description",
+      "ENTER Install   ESC Back",
+      "(no description)" },
     { "SETUP86 COLLECTION",
-      "ENTER Inst. F1 Ayuda F2 HD ESC Salir",
+      "ENTER Inst. F1 Ayuda F2 HD F3 Info",
       "(sin imagen)",
       "Espa\244ol",
       "Ingl\202s",
@@ -169,7 +178,7 @@ static const char *msgs[2][S_COUNT] = {
       "English",
       "Salir",
       "El juego se copia al directorio que elija (C:\\JUEGOS\\<JUEGO> si s\242lo pulsa ENTER). La \243ltima pantalla muestra c\242mo iniciarlo.",
-      "ENTER Inst F1 Ayuda F2 +CD ESC Salir",
+      "ENTER Inst. F1 Ayuda F2 +CD F3 Info",
       "Instalar men\243 al disco duro",
       "Agregar el CD de la unidad",
       "\250En qu\202 directorio instalar el men\243?",
@@ -194,7 +203,10 @@ static const char *msgs[2][S_COUNT] = {
       "para usar en PCs x86 reales.",
       "Libre y gratuito - Licencia MIT",
       "Si quiere apoyar su desarrollo:",
-      "Versi\242n %s" } };
+      "Versi\242n %s",
+      "Datos y descripci\242n",
+      "ENTER Instalar   ESC Volver",
+      "(sin descripci\242n)" } };
 static int lang;                      /* 0 English, 1 Spanish (F10) */
 #define L(id) msgs[lang][id]
 
@@ -314,11 +326,13 @@ static void text(int x, int y, const char far *s, int fg, int bg, int max)
     }
 }
 
-/* tiny 3x5 font, only for the version number at the top right ("v1.2.3") */
-static const unsigned char tiny[12][5] = {       /* 0-9, '.', 'v'; 3 bits per row, MSB = left */
+/* tiny 3x5 font: the version number at the top right ("v1.2.3"), the MIDI tags ("MT-32") */
+static const char tiny_chars[] = "0123456789.vMTSC-";
+static const unsigned char tiny[17][5] = {       /* 3 bits per row, MSB = left */
     {7,5,5,5,7}, {2,6,2,2,7}, {7,1,7,4,7}, {7,1,7,1,7}, {5,5,7,1,1},
     {7,4,7,1,7}, {7,4,7,5,7}, {7,1,1,1,1}, {7,5,7,5,7}, {7,5,7,1,7},
-    {0,0,0,0,2}, {0,5,5,5,2} };
+    {0,0,0,0,2}, {0,5,5,5,2}, {5,7,7,5,5}, {7,2,2,2,2}, {7,4,7,1,7},
+    {7,4,4,4,7}, {0,0,7,0,0} };
 
 static int tiny_width(const char *s)
 {
@@ -331,8 +345,9 @@ static void tiny_text(int x, int y, const char *s, int fg)
 {
     int r, b;
     for (; *s; s++) {
-        int i = *s == '.' ? 10 : *s == 'v' ? 11 : *s - '0';
-        if (i < 0 || i > 11) { x += 4; continue; }
+        const char *c = strchr(tiny_chars, *s);
+        int i = c ? c - tiny_chars : -1;
+        if (i < 0) { x += 4; continue; }
         for (r = 0; r < 5; r++)
             for (b = 0; b < 3; b++)
                 if (tiny[i][r] & (4 >> b)) vga[(unsigned)(y + r) * 320 + x + b - (i == 10)] = fg;
@@ -349,7 +364,7 @@ static void text_c(int y, const char far *s, int fg)   /* centred */
 /* ---------- keyboard (or test script) ---------- */
 
 enum { K_UP = 0x148, K_DOWN = 0x150, K_PGUP = 0x149, K_PGDN = 0x151,
-       K_HOME = 0x147, K_END = 0x14F, K_F1 = 0x13B, K_F2 = 0x13C, K_F10 = 0x144, K_F12 = 0x186,
+       K_HOME = 0x147, K_END = 0x14F, K_F1 = 0x13B, K_F2 = 0x13C, K_F3 = 0x13D, K_F10 = 0x144, K_F12 = 0x186,
        K_ENTER = 13, K_ESC = 27, K_BKSP = 8 };
 
 static char pending[64];
@@ -392,6 +407,8 @@ static int getkey(void)
             if (!strcmp(tok, "F1")) return K_F1;
             if (!strcmp(tok, "F10")) return K_F10;
             if (!strcmp(tok, "F2")) return K_F2;
+            if (!strcmp(tok, "F3")) return K_F3;
+            if (!strcmp(tok, "SPACE")) return ' ';
             if (!strcmp(tok, "F12")) return K_F12;
             if (!strncmp(tok, "KEY:", 4)) return (unsigned char)tok[4];
             if (!strcmp(tok, "SHOT")) { dump_screen(); continue; }
@@ -454,6 +471,9 @@ static int load_file(const char *fn, int vi, Vol *hdr)
         else if (!strcmp(line, "LANG")) g->lang = fdup(v);
         else if (!strcmp(line, "SIZE")) g->size = strtoul(v, 0, 10);
         else if (!strcmp(line, "SHOT")) _fstrncpy(g->shot, v, 8);
+        else if (!strcmp(line, "SOUND"))
+            g->sound = (strstr(v, "MT-32") ? SND_MT32 : 0) | (strstr(v, "SC-55") ? SND_SC55 : 0);
+        else if (!strcmp(line, "DESC")) g->desc = 1;
         else if (!strcmp(line, "RUN") && g->nrun < MAXRUN) g->run[g->nrun++] = fdup(v);
     }
     fclose(f);
@@ -574,6 +594,12 @@ static int wrap(const char far *s, int w, char out[][41], int maxl)
     return n;
 }
 
+static void tag(int x, int y, const char *s)        /* 23 x 8: tiny text on a green chip */
+{
+    fill(x, y, 23, 8, C_OK);
+    tiny_text(x + 2, y + 1, s, C_HITEXT);
+}
+
 static void draw_info(Game far *g)
 {
     char lines[3][41], buf[60];
@@ -590,6 +616,11 @@ static void draw_info(Game far *g)
     sprintf(buf, "%s, %lu.%lu MB", (g->lang && g->lang[0] == 'S') ? L(S_SPANISH) : L(S_ENGLISH),
             g->size / 1000000UL, (g->size / 100000UL) % 10);
     text(SHOT_X, y, buf, C_DIM, -1, 24);
+    {   /* MIDI support: tags at the right of that line */
+        int x = SHOT_X + SHOT_W;
+        if (g->sound & SND_SC55) { x -= 23; tag(x, y, "SC-55"); x -= 2; }
+        if (g->sound & SND_MT32) { x -= 23; tag(x, y, "MT-32"); }
+    }
     if (coll) {
         sprintf(buf, L(S_DISCLINE), vols[g->vi].set, vols[g->vi].vol);
         text(SHOT_X, y + 9, buf, C_TITLE, -1, 24);
@@ -650,7 +681,7 @@ static void help(void)
 {
     static const struct { const char *key; int id; } rows[] = {
         { "\x18 \x19", S_H_MOVE }, { "PgUp PgDn", S_H_PAGE }, { "Home End", S_H_ENDS },
-        { "A-Z", S_H_JUMP }, { "ENTER", S_H_INST }, { "F1", S_H_HELP }, { "F2", -1 },
+        { "A-Z", S_H_JUMP }, { "ENTER", S_H_INST }, { "F3 SPACE", S_H_INFO }, { "F2", -1 },
         { "F10", S_H_LANG }, { "F12", S_H_ABOUT }, { "ESC", S_H_QUIT } };
     char lines[5][41];
     int i, n, y = 36;
@@ -687,6 +718,59 @@ static void about(void)
     text_c(141, "ko-fi.com/setup86", C_FIELDTX);
     text_c(172, L(S_PRESS), C_DIM);
     getkey();
+}
+
+/* the game's info screen (F3): title, year, genre, MIDI support and its description
+ * (_MENU\<GAME>.TXT, one line that setup86.py already cut to DESC_LINES x DESC_W);
+ * returns 1 when ENTER asks to install it */
+#define DESC_W     37
+#define DESC_LINES 10
+static int info(Game far *g)
+{
+    char lines[DESC_LINES][41], buf[80], desc[512];
+    char far *genre = (lang && g->genre_es) ? g->genre_es : g->genre;
+    int i, n, k;
+    FILE *f;
+    fill(0, 10, 320, 180, C_BG);
+    dialog(4, 14, 312, 172);
+    n = wrap(g->title ? g->title : (char far *)"", 36, lines, 2);
+    for (i = 0; i < n; i++) text_c(22 + 9 * i, lines[i], C_TITLE);
+    sprintf(buf, "%Fs  %Fs", g->year ? g->year : (char far *)"", genre ? genre : (char far *)"");
+    text(12, 43, buf, C_TEXT, -1, DESC_W);
+    sprintf(buf, "%s, %lu.%lu MB", (g->lang && g->lang[0] == 'S') ? L(S_SPANISH) : L(S_ENGLISH),
+            g->size / 1000000UL, (g->size / 100000UL) % 10);
+    if (coll) {
+        strcat(buf, "  ");
+        sprintf(buf + strlen(buf), L(S_DISCLINE), vols[g->vi].set, vols[g->vi].vol);
+    }
+    text(12, 52, buf, C_DIM, -1, DESC_W);
+    if (g->sound) {
+        sprintf(buf, "MIDI: %s%s%s", g->sound & SND_MT32 ? "Roland MT-32" : "",
+                g->sound == (SND_MT32 | SND_SC55) ? ", " : "", g->sound & SND_SC55 ? "Sound Canvas" : "");
+        text(12, 61, buf, C_OK, -1, DESC_W);
+    }
+    desc[0] = 0;
+    if (g->desc) {
+        if (coll) sprintf(buf, "%s_MENU\\V%03d\\%Fs.TXT", base, g->vi + 1, (char far *)g->dir);
+        else sprintf(buf, "%s_MENU\\%Fs.TXT", base, (char far *)g->dir);
+        f = fopen(buf, "r");
+        if (f) {
+            if (!fgets(desc, sizeof desc, f)) desc[0] = 0;
+            fclose(f);
+            desc[strcspn(desc, "\r\n")] = 0;
+        }
+    }
+    if (desc[0]) {
+        n = wrap(desc, DESC_W, lines, DESC_LINES);
+        for (i = 0; i < n; i++) text(12, 74 + 9 * i, lines[i], C_TEXT, -1, DESC_W);
+    } else
+        text(12, 74, L(S_NODESC), C_DIM, -1, DESC_W);
+    text_c(172, L(S_INFOKEYS), C_DIM);
+    for (;;) {
+        k = getkey();
+        if (k == K_ENTER) return 1;
+        if (k == -1 || k == K_ESC || k == K_F3 || k == ' ') return 0;
+    }
 }
 
 /* ---------- install ---------- */
@@ -962,13 +1046,14 @@ static int small_copy(const char *src, const char *dst)
 }
 
 /* add (or refresh) the disc in root to the installed list in dir: its MENU.DAT
- * becomes _MENU\Vnnn.DAT, its pictures go to _MENU\Vnnn\; -1 on error */
+ * becomes _MENU\Vnnn.DAT, its pictures and descriptions go to _MENU\Vnnn\; -1 on error */
 static int import_volume(const char *root, const char *dir, const Vol *v)
 {
+    static const char *kinds[] = { "*.PIC", "*.TXT" };
     char src[100], dst[100], pat[100];
     struct find_t f;
     unsigned rc;
-    int vi = find_vol(v);
+    int k, vi = find_vol(v);
     if (vi < 0) {
         if (nvols >= MAXVOLS) { message(L(S_TOOMANY), 0, C_ERR); return -1; }
         vi = nvols++;
@@ -979,19 +1064,23 @@ static int import_volume(const char *root, const char *dir, const Vol *v)
     if (!small_copy(src, dst)) return -1;
     sprintf(dst, "%s_MENU\\V%03d", dir, vi + 1);
     mkdir(dst);
-    sprintf(pat, "%s\\*.PIC", dst);                     /* pictures of an older build */
-    for (rc = _dos_findfirst(pat, _A_NORMAL, &f); !rc; rc = _dos_findnext(&f)) {
-        sprintf(src, "%s\\%s", dst, f.name);
-        remove(src);
+    for (k = 0; k < 2; k++) {                           /* files of an older build */
+        sprintf(pat, "%s\\%s", dst, kinds[k]);
+        for (rc = _dos_findfirst(pat, _A_NORMAL, &f); !rc; rc = _dos_findnext(&f)) {
+            sprintf(src, "%s\\%s", dst, f.name);
+            remove(src);
+        }
+        _dos_findclose(&f);
     }
-    _dos_findclose(&f);
-    sprintf(pat, "%s_MENU\\*.PIC", root);
-    for (rc = _dos_findfirst(pat, _A_NORMAL | _A_RDONLY, &f); !rc; rc = _dos_findnext(&f)) {
-        sprintf(src, "%s_MENU\\%s", root, f.name);
-        sprintf(dst, "%s_MENU\\V%03d\\%s", dir, vi + 1, f.name);
-        if (!small_copy(src, dst)) { _dos_findclose(&f); return -1; }
+    for (k = 0; k < 2; k++) {
+        sprintf(pat, "%s_MENU\\%s", root, kinds[k]);
+        for (rc = _dos_findfirst(pat, _A_NORMAL | _A_RDONLY, &f); !rc; rc = _dos_findnext(&f)) {
+            sprintf(src, "%s_MENU\\%s", root, f.name);
+            sprintf(dst, "%s_MENU\\V%03d\\%s", dir, vi + 1, f.name);
+            if (!small_copy(src, dst)) { _dos_findclose(&f); return -1; }
+        }
+        _dos_findclose(&f);
     }
-    _dos_findclose(&f);
     if (!write_vols(dir)) return -1;
     return vi;
 }
@@ -1264,6 +1353,10 @@ int main(int argc, char **argv)
             continue;
         case K_ENTER:
             install(&games[sel]);
+            redraw(top, sel);
+            continue;
+        case K_F3: case ' ':
+            if (info(&games[sel])) install(&games[sel]);
             redraw(top, sel);
             continue;
         default:                                  /* letter: jump to the next game starting with it */
