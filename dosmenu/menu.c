@@ -35,6 +35,7 @@
 #include <fcntl.h>
 #include <direct.h>
 #include <sys/stat.h>
+#include <process.h>
 
 #define VERSION   "v1.4.0"      /* shown at the right of the top bar; the release tag */
 #define MAXGAMES  400
@@ -79,7 +80,7 @@ enum { S_HEADER, S_FOOTER, S_NOPIC, S_SPANISH, S_ENGLISH, S_PRESS, S_WHERE, S_OK
        S_FOOTER_C, S_H_F2D, S_H_F2C, S_MWHERE, S_MDONE, S_MRUN, S_INSERT, S_READY, S_NEWDISC, S_ADDQ,
        S_NEWBUILD, S_UPDQ, S_NODISC, S_ADDED, S_NOTONDISC, S_MCOPYFAIL, S_DISCLINE, S_TOOMANY,
        S_H_ABOUT, S_ABOUT, S_A_BY, S_A_MADE1, S_A_MADE2, S_A_FREE, S_A_DONATE, S_A_VER,
-       S_H_INFO, S_INFOKEYS, S_NODESC, S_H_FILTER, S_NOFILTER, S_COUNT };
+       S_H_INFO, S_INFOKEYS, S_NODESC, S_H_FILTER, S_NOFILTER, S_UPDATED, S_RESTART, S_COUNT };
 static const char *msgs[2][S_COUNT] = {
     { "SETUP86 COLLECTION",
       "ENTER Install F1 Help F2 HD F3 Info",
@@ -148,7 +149,9 @@ static const char *msgs[2][S_COUNT] = {
       "ENTER Install   ESC Back",
       "(no description)",
       "Filter MT-32 / Sound Canvas",
-      "No %s games in this list" },
+      "No %s games in this list",
+      "Menu updated to v%s",
+      "It starts again now" },
     { "SETUP86 COLLECTION",
       "ENTER Inst. F1 Ayuda F2 HD F3 Info",
       "(sin imagen)",
@@ -216,7 +219,9 @@ static const char *msgs[2][S_COUNT] = {
       "ENTER Instalar   ESC Volver",
       "(sin descripci\242n)",
       "Filtro MT-32 / Sound Canvas",
-      "No hay juegos %s en la lista" } };
+      "No hay juegos %s en la lista",
+      "Men\243 actualizado a v%s",
+      "Ahora vuelve a iniciarse" } };
 static int lang;                      /* 0 English, 1 Spanish (F10) */
 #define L(id) msgs[lang][id]
 
@@ -257,6 +262,8 @@ static int ngames;
 static const int filters[] = { -1, 0, 1 };      /* all, MT-32, Sound Canvas */
 static int filt, view[MAXGAMES], nview;         /* view: indexes in games[] of the shown games */
 static char label[40], base[80], exe[80];
+static char id_menu[12];                /* the MENU line of the last SETUP86.ID read */
+static int menu_updated;                /* MENU.EXE was replaced by a disc's newer one */
 
 /* the discs: in disc mode only this one (vols[0]); installed, all known ones */
 #define MAXVOLS 40
@@ -1040,6 +1047,7 @@ static int read_id(const char *root, Vol *v)
     char fn[40], line[80];
     FILE *f;
     memset(v, 0, sizeof *v);
+    id_menu[0] = 0;
     sprintf(fn, "%sSETUP86.ID", root);
     f = fopen(fn, "r");
     if (!f) return 0;
@@ -1052,9 +1060,19 @@ static int read_id(const char *root, Vol *v)
         if (!strcmp(line, "SET")) { strncpy(v->set, val, 9); v->set[9] = 0; }
         else if (!strcmp(line, "VOL")) v->vol = atoi(val);
         else if (!strcmp(line, "BUILD")) { strncpy(v->build, val, 15); v->build[15] = 0; }
+        else if (!strcmp(line, "MENU")) { strncpy(id_menu, val, 11); id_menu[11] = 0; }
     }
     fclose(f);
     return v->set[0] && v->vol;
+}
+
+/* "1.4.1" or "v1.4.1" -> 1004001, to compare versions; 0 if none */
+static long ver_num(const char *s)
+{
+    int a = 0, b = 0, c = 0;
+    if (*s == 'v') s++;
+    sscanf(s, "%d.%d.%d", &a, &b, &c);
+    return a * 1000000L + b * 1000L + c;
 }
 
 static int find_vol(const Vol *v)
@@ -1124,6 +1142,21 @@ static int import_volume(const char *root, const char *dir, const Vol *v)
     return vi;
 }
 
+/* installed mode, after a disc in root was added: when that disc (its SETUP86.ID, read last)
+ * carries a newer MENU.EXE, it replaces this one (through MENU.NEW, so a failed copy
+ * leaves the old program); main() then starts the new one */
+static void self_update(const char *root)
+{
+    char src[40], tmp[100];
+    if (!coll || ver_num(id_menu) <= ver_num(VERSION)) return;
+    sprintf(src, "%sMENU.EXE", root);
+    sprintf(tmp, "%sMENU.NEW", base);
+    if (!small_copy(src, tmp)) { remove(tmp); return; }
+    _dos_setfileattr(exe, _A_NORMAL);
+    if (remove(exe) || rename(tmp, exe)) { remove(tmp); return; }
+    menu_updated = 1;
+}
+
 static int ask_yn(const char *l1, const char *l2)
 {
     int k;
@@ -1153,6 +1186,7 @@ static int add_disc(int quiet)
         sprintf(buf, L(vi < 0 ? S_NEWDISC : S_NEWBUILD), v.set, v.vol);
         if (!ask_yn(buf, L(vi < 0 ? S_ADDQ : S_UPDQ))) continue;
         if ((vi = import_volume(root, base, &v)) < 0) { message(L(S_MCOPYFAIL), 0, C_ERR); continue; }
+        self_update(root);
         added = vi;
     }
     if (added >= 0) {
@@ -1207,6 +1241,7 @@ static int ask_disc(int vi, int *reload)
                 sprintf(buf, L(S_NEWBUILD), v.set, v.vol);
                 if (!ask_yn(buf, L(S_UPDQ))) return 0;
                 if (import_volume(root, base, &v) < 0) { message(L(S_MCOPYFAIL), 0, C_ERR); return 0; }
+                self_update(root);
                 *reload = 1;
             }
             return 'A' + d[i];
@@ -1322,6 +1357,18 @@ static void redraw(int top, int sel)
     draw_info(&games[view[sel]]);
 }
 
+/* MENU.EXE was updated by self_update(): say so and start the new program in its place */
+static void restart(char **argv)
+{
+    char buf[60];
+    sprintf(buf, L(S_UPDATED), id_menu[0] == 'v' ? id_menu + 1 : id_menu);
+    message(buf, L(S_RESTART), C_OK);
+    set_mode(0x03);
+    execv(exe, argv);
+    printf("Setup86: menu updated, start it again: %s\n", exe);   /* exec failed */
+    exit(0);
+}
+
 int main(int argc, char **argv)
 {
     int i, sel = 0, top = 0, k;
@@ -1369,6 +1416,7 @@ int main(int argc, char **argv)
     }
     draw_frame();
     if (coll) add_disc(1);                       /* a new disc in the drive? */
+    if (menu_updated) restart(argv);
     build_view();
     redraw(top, sel);
 
@@ -1419,6 +1467,7 @@ int main(int argc, char **argv)
             }
             goto moved;
         }
+        if (menu_updated) restart(argv);          /* F2, ENTER and F3 can add a disc with a newer menu */
         /* F2, ENTER, F3 and F4 can reload the list (a disc added or updated) or change the filter */
         if (!build_view()) { filt = 0; build_view(); }
         if (sel > nview - 1) sel = nview - 1;

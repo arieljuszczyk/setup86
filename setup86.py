@@ -1239,10 +1239,11 @@ def menu_names(gms):
 
 def write_gui(root, label, dk, series, vol, build, all_names=None):
     """MENU.EXE (+ the same program as INSTALL.EXE) + _MENU\\MENU.DAT + one _MENU\\<GAME>.PIC
-    per game + \\SETUP86.ID, which tells an installed menu which disc this is."""
+    per game + \\SETUP86.ID, which tells an installed menu which disc this is (and, by its MENU
+    line, that this disc's MENU.EXE is newer than the installed one, which then updates itself)."""
     ident = ['SET ' + series, 'VOL %d' % vol, 'BUILD ' + build]
     with open(os.path.join(root, 'SETUP86.ID'), 'wb') as f:
-        f.write(('\r\n'.join(ident) + '\r\n').encode('ascii'))
+        f.write(('\r\n'.join(ident + ['MENU ' + VERSION]) + '\r\n').encode('ascii'))
     if not os.path.isfile(MENU_EXE):
         return 'MENU.EXE not built (see dosmenu/menu.c) - text menu only'
     shutil.copyfile(MENU_EXE, os.path.join(root, 'MENU.EXE'))

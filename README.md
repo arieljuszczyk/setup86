@@ -259,7 +259,7 @@ Output (`isos/` in the examples, rebuilt each run; folders are hardlinks, so onl
 | `DISCn/` | the same as folders |
 | `MENU.EXE` + `_MENU\` (on each disc) | graphical install menu: `MENU.DAT` (list, run notes) + one `<GAME>.PIC` screenshot per game |
 | `INSTALL.EXE` (on each disc) | the same program: started by this name, it installs the menu on the hard disk |
-| `SETUP86.ID` (on each disc) | which disc this is: `SET <series>`, `VOL <n>`, `BUILD <yyyymmddhhmm>` |
+| `SETUP86.ID` (on each disc) | which disc this is: `SET <series>`, `VOL <n>`, `BUILD <yyyymmddhhmm>`, and `MENU <version>` (its `MENU.EXE`) |
 | `TXTMENU.BAT` + `GETLINE.COM` (on each disc) | text-mode fallback menu, see below |
 | `DISCn.TXT` | per game: where it goes on `C:` and how to start it (not on the disc) |
 
@@ -322,6 +322,10 @@ hardlinks, so they take real space.
     offered for adding. A disc with the same series and number but another `BUILD` (re-burned) is
     offered as an update of that disc's entries. Running `INSTALL` again on an existing folder also
     adds or updates that disc there.
+  - **Updating itself**: when a disc it adds or updates carries a newer menu (the `MENU <version>`
+    line of its `SETUP86.ID`, from v1.4.1 on), the installed `MENU.EXE` is replaced by the disc's
+    and starts again, so burning one new disc brings the new menu (e.g. the F4 filter) to the whole
+    list. Menus older than v1.4.1 can't do this: run `D:\INSTALL` once into the same folder instead.
   - **Files**: `_MENU\VOLS.DAT` (one line per disc, `<series> <n> <build>`; line n is disc n of the
     list), `_MENU\Vnnn.DAT` (that disc's `MENU.DAT`) and `_MENU\Vnnn\*.PIC`.
   - Disk errors (empty drive, disc being changed) are failed quietly by a critical-error handler,
