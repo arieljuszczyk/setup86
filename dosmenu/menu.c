@@ -37,7 +37,7 @@
 #include <sys/stat.h>
 #include <process.h>
 
-#define VERSION   "v1.4.0"      /* shown at the right of the top bar; the release tag */
+#define VERSION   "v1.4.1"      /* shown at the right of the top bar; the release tag */
 #define MAXGAMES  400
 #define MAXRUN    12
 #define SHOT_W    192
